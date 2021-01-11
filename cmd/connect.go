@@ -110,7 +110,7 @@ func connectEphemeral(addrport string) error {
 
 	connTotal := connectRate * int32(duration.Seconds())
 	tr := rate.Every(time.Second / time.Duration(connectRate))
-	limiter := rate.NewLimiter(tr, int(connectRate))
+	limiter := rate.NewLimiter(tr, 1)
 
 	var i int32
 	for i = 0; i < connTotal; i++ {

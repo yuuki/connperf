@@ -4,7 +4,14 @@ connperf is a measturement tool for TCP connections in Go.
 
 ## Examples
 
+Run as a server.
+
 ```shell
-connperf serve -p 9000
-connperf connect --persistent-connections 10000 --rate 1000 <server addr>:9000
+connperf serve -l 127.0.0.1:9100
+```
+
+Give the server load as a client.
+
+```shell
+connperf connect --connections 1000 --rate 100 --duration 15s 12.0.0.1:9100
 ```

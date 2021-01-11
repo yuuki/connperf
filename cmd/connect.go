@@ -16,6 +16,7 @@ limitations under the License.
 package cmd
 
 import (
+	"fmt"
 	"log"
 	"net"
 	"sync"
@@ -24,7 +25,13 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const (
+	connectTypePersistent = "persistent"
+	connectTypeEphemeral  = "ephemeral"
+)
+
 var (
+	connectType string
 	connections int32
 	connectRate int32
 	duration    time.Duration
@@ -34,6 +41,15 @@ var (
 var connectCmd = &cobra.Command{
 	Use:   "connect",
 	Short: "connect connects to a port where 'serve' listens",
+	Args: func(cmd *cobra.Command, args []string) error {
+		switch connectType {
+		case connectTypePersistent:
+		case connectTypeEphemeral:
+		default:
+			return fmt.Errorf("undefined connect mode %q", connectType)
+		}
+		return nil
+	},
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return connect(cmd.Flags().Arg(0))
 	},
@@ -41,6 +57,9 @@ var connectCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(connectCmd)
+	connectCmd.Flags().StringVar(&connectType, "type", connectTypePersistent,
+		fmt.Sprintf("connect behavior type '%s' or '%s'", connectTypePersistent, connectTypeEphemeral),
+	)
 	connectCmd.Flags().Int32VarP(&connections, "connections", "c", 10, "Number of connections to keep")
 	connectCmd.Flags().Int32VarP(&connectRate, "rate", "r", 100, "connections throughput (/s)")
 	connectCmd.Flags().DurationVarP(&duration, "duration", "d", 10*time.Second, "measurement period")

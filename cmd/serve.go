@@ -27,25 +27,28 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var (
+	listenAddr string
+)
+
 // serveCmd represents the serve command
 var serveCmd = &cobra.Command{
 	Use:   "serve",
 	Short: "serve accepts connections",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		lport := cmd.Flags().Uint16P("port", "p", 9100, "listening port")
-		return serve(*lport)
+		return serve()
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(serveCmd)
+	serveCmd.Flags().StringVarP(&listenAddr, "listenAddr", "l", "0.0.0.0:9100", "listening address")
 }
 
-func serve(lport uint16) error {
-	addr := fmt.Sprintf(":%d", lport)
-	ln, err := net.Listen("tcp", addr)
+func serve() error {
+	ln, err := net.Listen("tcp", listenAddr)
 	if err != nil {
-		log.Fatalf("listen %q error: %s", addr, err)
+		log.Fatalf("listen %q error: %s", listenAddr, err)
 	}
 
 	for {
@@ -68,7 +71,7 @@ func serve(lport uint16) error {
 			if err := echoStream(conn); err != nil {
 				log.Println(err)
 				if err := conn.Close(); err != nil {
-					log.Println("could not close: %s", err)
+					log.Printf("could not close: %s\n", err)
 				}
 			}
 		}()

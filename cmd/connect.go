@@ -24,39 +24,32 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var (
+	connections int32
+	connectRate int32
+	duration    time.Duration
+)
+
 // connectCmd represents the connect command
 var connectCmd = &cobra.Command{
 	Use:   "connect",
 	Short: "connect connects to a port where 'serve' listens",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		connections := cmd.Flags().Int32P("connections", "c", 10, "Number of connections to keep")
-		rate := cmd.Flags().Int32P("rate", "r", 100, "connections throughput (/s)")
-		duration := cmd.Flags().DurationP("duration", "d", 10*time.Second, "measurement period")
-
-		addrport := cmd.Flags().Arg(0)
-
-		return connect(addrport, &connectOptions{
-			Connections: *connections,
-			Rate:        *rate,
-			Duration:    *duration,
-		})
+		return connect(cmd.Flags().Arg(0))
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(connectCmd)
+	connectCmd.Flags().Int32VarP(&connections, "connections", "c", 10, "Number of connections to keep")
+	connectCmd.Flags().Int32VarP(&connectRate, "rate", "r", 100, "connections throughput (/s)")
+	connectCmd.Flags().DurationVarP(&duration, "duration", "d", 10*time.Second, "measurement period")
 }
 
-type connectOptions struct {
-	Connections int32
-	Rate        int32
-	Duration    time.Duration
-}
-
-func connect(addrport string, opt *connectOptions) error {
+func connect(addrport string) error {
 	wg := &sync.WaitGroup{}
 	var i int32
-	for i = 0; i < opt.Connections; i++ {
+	for i = 0; i < connections; i++ {
 		wg.Add(1)
 		go func() {
 			conn, err := net.Dial("tcp", addrport)
@@ -67,7 +60,7 @@ func connect(addrport string, opt *connectOptions) error {
 				log.Printf("could not write: %s\n", err)
 			}
 
-			timer := time.NewTimer(opt.Duration)
+			timer := time.NewTimer(duration)
 			<-timer.C
 
 			if err := conn.Close(); err != nil {

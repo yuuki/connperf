@@ -60,9 +60,11 @@ func init() {
 	connectCmd.Flags().StringVar(&connectType, "type", connectTypePersistent,
 		fmt.Sprintf("connect behavior type '%s' or '%s'", connectTypePersistent, connectTypeEphemeral),
 	)
-	connectCmd.Flags().Int32VarP(&connections, "connections", "c", 10, "Number of connections to keep")
-	connectCmd.Flags().Int32VarP(&connectRate, "rate", "r", 100, "connections throughput (/s)")
-	connectCmd.Flags().DurationVarP(&duration, "duration", "d", 10*time.Second, "measurement period")
+	connectCmd.Flags().Int32VarP(&connections, "connections", "c", 10,
+		fmt.Sprintf("Number of connections to keep (only for '%s')l", connectTypePersistent))
+	connectCmd.Flags().Int32VarP(&connectRate, "rate", "r", 100,
+		fmt.Sprintf("New connections throughput (/s) (only for '%s')", connectTypeEphemeral))
+	connectCmd.Flags().DurationVarP(&duration, "duration", "d", 10*time.Second, "Measurement period")
 }
 
 func connect(addrport string) error {

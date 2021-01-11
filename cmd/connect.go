@@ -16,6 +16,7 @@ limitations under the License.
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net"
@@ -23,6 +24,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"golang.org/x/time/rate"
 )
 
 const (
@@ -51,7 +53,15 @@ var connectCmd = &cobra.Command{
 		return nil
 	},
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return connect(cmd.Flags().Arg(0))
+		switch connectType {
+		case connectTypePersistent:
+			return connectPersistent(cmd.Flags().Arg(0))
+		case connectTypeEphemeral:
+			return connectEphemeral(cmd.Flags().Arg(0))
+		default:
+			return fmt.Errorf("undefined connect mode %q", connectType)
+		}
+		return nil
 	},
 }
 
@@ -67,7 +77,7 @@ func init() {
 	connectCmd.Flags().DurationVarP(&duration, "duration", "d", 10*time.Second, "Measurement period")
 }
 
-func connect(addrport string) error {
+func connectPersistent(addrport string) error {
 	wg := &sync.WaitGroup{}
 	var i int32
 	for i = 0; i < connections; i++ {
@@ -91,5 +101,36 @@ func connect(addrport string) error {
 		}()
 	}
 	wg.Wait()
+	return nil
+}
+
+func connectEphemeral(addrport string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), duration)
+	defer cancel()
+
+	connTotal := connectRate * int32(duration.Seconds())
+	tr := rate.Every(time.Second / time.Duration(connectRate))
+	limiter := rate.NewLimiter(tr, int(connectRate))
+
+	var i int32
+	for i = 0; i < connTotal; i++ {
+		if err := limiter.Wait(ctx); err != nil {
+			log.Println(err)
+			continue
+		}
+		go func() {
+			conn, err := net.Dial("tcp", addrport)
+			if err != nil {
+				log.Printf("could not dial %q: %s", addrport, err)
+			}
+			if _, err := conn.Write([]byte("Hello")); err != nil {
+				log.Printf("could not write: %s\n", err)
+			}
+			if err := conn.Close(); err != nil {
+				log.Printf("could not close: %s\n", err)
+			}
+		}()
+	}
+
 	return nil
 }

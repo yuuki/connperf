@@ -16,7 +16,10 @@ limitations under the License.
 package cmd
 
 import (
-	"fmt"
+	"log"
+	"net"
+	"sync"
+	"time"
 
 	"github.com/spf13/cobra"
 )
@@ -25,11 +28,54 @@ import (
 var connectCmd = &cobra.Command{
 	Use:   "connect",
 	Short: "connect connects to a port where 'serve' listens",
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("connect called")
+	RunE: func(cmd *cobra.Command, args []string) error {
+		connections := cmd.Flags().Int32P("connections", "c", 10, "Number of connections to keep")
+		rate := cmd.Flags().Int32P("rate", "r", 100, "connections throughput (/s)")
+		duration := cmd.Flags().DurationP("duration", "d", 10*time.Second, "measurement period")
+
+		addrport := cmd.Flags().Arg(0)
+
+		return connect(addrport, &connectOptions{
+			Connections: *connections,
+			Rate:        *rate,
+			Duration:    *duration,
+		})
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(connectCmd)
+}
+
+type connectOptions struct {
+	Connections int32
+	Rate        int32
+	Duration    time.Duration
+}
+
+func connect(addrport string, opt *connectOptions) error {
+	wg := &sync.WaitGroup{}
+	var i int32
+	for i = 0; i < opt.Connections; i++ {
+		wg.Add(1)
+		go func() {
+			conn, err := net.Dial("tcp", addrport)
+			if err != nil {
+				log.Printf("could not dial %q: %s", addrport, err)
+			}
+			if _, err := conn.Write([]byte("Hello")); err != nil {
+				log.Printf("could not write: %s\n", err)
+			}
+
+			timer := time.NewTimer(opt.Duration)
+			<-timer.C
+
+			if err := conn.Close(); err != nil {
+				log.Printf("could not close: %s\n", err)
+			}
+			wg.Done()
+		}()
+	}
+	wg.Wait()
+	return nil
 }

@@ -17,7 +17,6 @@ package cmd
 
 import (
 	"bufio"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -85,10 +84,10 @@ func echoStream(conn net.Conn) error {
 	r := bufio.NewReader(conn)
 	msg, err := ioutil.ReadAll(r)
 	if err != nil {
-		return errors.Errorf("could not read: %s\n", err)
+		return fmt.Errorf("could not read: %s", err)
 	}
 	if _, err := conn.Write(msg); err != nil {
-		return errors.Errorf("could write %q", msg)
+		return fmt.Errorf("could write %q", msg)
 	}
 	return nil
 }

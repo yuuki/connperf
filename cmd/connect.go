@@ -55,9 +55,15 @@ var connectCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		switch connectType {
 		case connectTypePersistent:
-			return connectPersistent(cmd.Flags().Arg(0))
+			addr := cmd.Flags().Arg(0)
+			cmd.Printf("Trying to connect to %q with %q connections (connections: %d, duration: %s)...\n",
+				addr, connectTypePersistent, connections, duration)
+			return connectPersistent(addr)
 		case connectTypeEphemeral:
-			return connectEphemeral(cmd.Flags().Arg(0))
+			addr := cmd.Flags().Arg(0)
+			cmd.Printf("Trying to connect to %q with %q connections (rate: %d, duration: %s)\n",
+				addr, connectTypeEphemeral, connectRate, duration)
+			return connectEphemeral(addr)
 		default:
 			return fmt.Errorf("undefined connect mode %q", connectType)
 		}

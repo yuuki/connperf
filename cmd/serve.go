@@ -36,6 +36,7 @@ var serveCmd = &cobra.Command{
 	Use:   "serve",
 	Short: "serve accepts connections",
 	RunE: func(cmd *cobra.Command, args []string) error {
+		cmd.Println("Listening %q", listenAddr)
 		return serve()
 	},
 }
@@ -48,7 +49,7 @@ func init() {
 func serve() error {
 	ln, err := net.Listen("tcp", listenAddr)
 	if err != nil {
-		log.Fatalf("listen %q error: %s", listenAddr, err)
+		return fmt.Errorf("listen %q error: %s", listenAddr, err)
 	}
 
 	for {
@@ -81,9 +82,6 @@ func serve() error {
 }
 
 func echoStream(conn net.Conn) error {
-	// if err := conn.SetReadDeadline(time.Now().Add(3 * time.Second)); err != nil {
-	// 	log.Printf("could not set read deadline: %s\n", err)
-	// }
 	r := bufio.NewReader(conn)
 	msg, err := ioutil.ReadAll(r)
 	if err != nil {

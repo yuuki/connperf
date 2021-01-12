@@ -89,12 +89,15 @@ func connectPersistent(addrport string) error {
 	for i = 0; i < connections; i++ {
 		wg.Add(1)
 		go func() {
+			defer wg.Done()
 			conn, err := net.Dial("tcp", addrport)
 			if err != nil {
 				log.Printf("could not dial %q: %s", addrport, err)
+				return
 			}
 			if _, err := conn.Write([]byte("Hello")); err != nil {
 				log.Printf("could not write: %s\n", err)
+				return
 			}
 
 			timer := time.NewTimer(duration)
@@ -102,8 +105,8 @@ func connectPersistent(addrport string) error {
 
 			if err := conn.Close(); err != nil {
 				log.Printf("could not close: %s\n", err)
+				return
 			}
-			wg.Done()
 		}()
 	}
 	wg.Wait()

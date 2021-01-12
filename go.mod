@@ -1,4 +1,4 @@
-module github.com/yuuki/connbench
+module github.com/yuuki/connperf
 
 go 1.15
 

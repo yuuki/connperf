@@ -15,7 +15,7 @@ limitations under the License.
 */
 package main
 
-import "github.com/yuuki/connbench/cmd"
+import "github.com/yuuki/connperf/cmd"
 
 func main() {
 	cmd.Execute()

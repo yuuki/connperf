@@ -36,7 +36,7 @@ var serveCmd = &cobra.Command{
 	Use:   "serve",
 	Short: "serve accepts connections",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		cmd.Println("Listening %q", listenAddr)
+		cmd.Printf("Listening at %q ...\n", listenAddr)
 		return serve()
 	},
 }

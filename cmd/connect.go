@@ -18,9 +18,11 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -32,11 +34,22 @@ const (
 	connectTypeEphemeral  = "ephemeral"
 )
 
+type reportStats struct {
+	ConnectionsTotal int64
+}
+
+func (s reportStats) Print(w io.Writer) {
+	fmt.Fprintf(w, "--- Execution results of connperf ---\n")
+	fmt.Fprintf(w, "Total number of connections: %d\n", s.ConnectionsTotal)
+}
+
 var (
 	connectType string
 	connections int32
 	connectRate int32
 	duration    time.Duration
+
+	stats reportStats
 )
 
 // connectCmd represents the connect command
@@ -58,15 +71,20 @@ var connectCmd = &cobra.Command{
 			addr := cmd.Flags().Arg(0)
 			cmd.Printf("Trying to connect to %q with %q connections (connections: %d, duration: %s)...\n",
 				addr, connectTypePersistent, connections, duration)
-			return connectPersistent(addr)
+			if err := connectPersistent(addr); err != nil {
+				return err
+			}
 		case connectTypeEphemeral:
 			addr := cmd.Flags().Arg(0)
 			cmd.Printf("Trying to connect to %q with %q connections (rate: %d, duration: %s)\n",
 				addr, connectTypeEphemeral, connectRate, duration)
-			return connectEphemeral(addr)
+			if err := connectEphemeral(addr); err != nil {
+				return err
+			}
 		default:
 			return fmt.Errorf("undefined connect mode %q", connectType)
 		}
+		stats.Print(cmd.OutOrStdout())
 		return nil
 	},
 }
@@ -107,6 +125,8 @@ func connectPersistent(addrport string) error {
 				log.Printf("could not close: %s\n", err)
 				return
 			}
+
+			atomic.AddInt64(&stats.ConnectionsTotal, 1)
 		}()
 	}
 	wg.Wait()
@@ -138,6 +158,8 @@ func connectEphemeral(addrport string) error {
 			if err := conn.Close(); err != nil {
 				log.Printf("could not close: %s\n", err)
 			}
+
+			atomic.AddInt64(&stats.ConnectionsTotal, 1)
 		}()
 	}
 

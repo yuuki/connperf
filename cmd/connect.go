@@ -70,7 +70,11 @@ var connectCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if udp {
 			addr := cmd.Flags().Arg(0)
-			return connectUDP(addr)
+			if err := connectUDP(addr); err != nil {
+				return err
+			}
+			stats.Print(cmd.OutOrStdout())
+			return nil
 		}
 		switch connectType {
 		case connectTypePersistent:
@@ -187,11 +191,6 @@ func connectUDP(addrport string) error {
 		New: func() interface{} { return make([]byte, UDPPacketSize) },
 	}
 
-	raddr, err := net.ResolveUDPAddr("udp", addrport)
-	if err != nil {
-		return err
-	}
-
 	var i int32
 	for i = 0; i < connTotal; i++ {
 		if err := limiter.Wait(ctx); err != nil {
@@ -199,7 +198,8 @@ func connectUDP(addrport string) error {
 			continue
 		}
 		go func() {
-			conn, err := net.DialUDP("udp", nil, raddr)
+			// create socket
+			conn, err := net.Dial("udp", addrport)
 			if err != nil {
 				log.Printf("could not dial %q: %s", addrport, err)
 				return

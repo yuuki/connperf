@@ -21,7 +21,10 @@ import (
 	"io/ioutil"
 	"log"
 	"net"
+	"os"
+	"os/signal"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -37,7 +40,23 @@ var serveCmd = &cobra.Command{
 	Short: "serve accepts connections",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.Printf("Listening at %q ...\n", listenAddr)
-		return serve()
+		go func() {
+			if err := serveTCP(); err != nil {
+				log.Println(err)
+			}
+		}()
+		go func() {
+			if err := serveUDP(); err != nil {
+				log.Println(err)
+			}
+		}()
+
+		sig := make(chan os.Signal, 1)
+		signal.Notify(sig, os.Interrupt, os.Kill)
+		ret := <-sig
+		log.Printf("Received %v, Goodbye\n", ret)
+
+		return nil
 	},
 }
 
@@ -46,7 +65,7 @@ func init() {
 	serveCmd.Flags().StringVarP(&listenAddr, "listenAddr", "l", "0.0.0.0:9100", "listening address")
 }
 
-func serve() error {
+func serveTCP() error {
 	ln, err := net.Listen("tcp", listenAddr)
 	if err != nil {
 		return fmt.Errorf("listen %q error: %s", listenAddr, err)
@@ -90,5 +109,43 @@ func echoStream(conn net.Conn) error {
 	if _, err := conn.Write(msg); err != nil {
 		return fmt.Errorf("could write %q", msg)
 	}
+	return nil
+}
+
+const (
+	UDPPacketSize = 1500
+)
+
+var bufUDPPool sync.Pool
+
+func serveUDP() error {
+	ln, err := net.ListenPacket("udp", listenAddr)
+	if err != nil {
+		return fmt.Errorf("listen %q error: %s", listenAddr, err)
+	}
+	defer ln.Close()
+
+	bufUDPPool = sync.Pool{
+		New: func() interface{} { return make([]byte, UDPPacketSize) },
+	}
+
+	for {
+		msg := bufUDPPool.Get().([]byte)
+		n, addr, err := ln.ReadFrom(msg[0:])
+		if err != nil {
+			log.Printf("UDP read error: %s", err)
+			continue
+		}
+
+		go func() {
+			n, err = ln.WriteTo(msg[:n], addr)
+			if err != nil {
+				log.Printf("UDP send error: %s\n", err)
+				return
+			}
+			bufUDPPool.Put(msg)
+		}()
+	}
+
 	return nil
 }

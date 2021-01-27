@@ -44,6 +44,8 @@ func (s reportStats) Print(w io.Writer) {
 }
 
 var (
+	udp bool
+
 	connectType string
 	connections int32
 	connectRate int32
@@ -66,6 +68,10 @@ var connectCmd = &cobra.Command{
 		return nil
 	},
 	RunE: func(cmd *cobra.Command, args []string) error {
+		if udp {
+			addr := cmd.Flags().Arg(0)
+			return connectUDP(addr)
+		}
 		switch connectType {
 		case connectTypePersistent:
 			addr := cmd.Flags().Arg(0)
@@ -91,6 +97,9 @@ var connectCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(connectCmd)
+
+	connectCmd.Flags().BoolVar(&udp, "udp", false, "UDP mode")
+
 	connectCmd.Flags().StringVar(&connectType, "type", connectTypePersistent,
 		fmt.Sprintf("connect behavior type '%s' or '%s'", connectTypePersistent, connectTypeEphemeral),
 	)
@@ -157,6 +166,60 @@ func connectEphemeral(addrport string) error {
 			}
 			if err := conn.Close(); err != nil {
 				log.Printf("could not close: %s\n", err)
+			}
+
+			atomic.AddInt64(&stats.ConnectionsTotal, 1)
+		}()
+	}
+
+	return nil
+}
+
+func connectUDP(addrport string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), duration)
+	defer cancel()
+
+	connTotal := connectRate * int32(duration.Seconds())
+	tr := rate.Every(time.Second / time.Duration(connectRate))
+	limiter := rate.NewLimiter(tr, 1)
+
+	bufUDPPool := sync.Pool{
+		New: func() interface{} { return make([]byte, UDPPacketSize) },
+	}
+
+	raddr, err := net.ResolveUDPAddr("udp", addrport)
+	if err != nil {
+		return err
+	}
+
+	var i int32
+	for i = 0; i < connTotal; i++ {
+		if err := limiter.Wait(ctx); err != nil {
+			log.Println(err)
+			continue
+		}
+		go func() {
+			conn, err := net.DialUDP("udp", nil, raddr)
+			if err != nil {
+				log.Printf("could not dial %q: %s", addrport, err)
+				return
+			}
+			defer func() {
+				if err := conn.Close(); err != nil {
+					log.Printf("could not close: %s\n", err)
+				}
+			}()
+
+			msg := bufUDPPool.Get().([]byte)
+			defer func() { bufUDPPool.Put(msg) }()
+
+			if _, err := conn.Write([]byte("Hello")); err != nil {
+				log.Printf("could not write: %s\n", err)
+				return
+			}
+			if _, err := conn.Read(msg); err != nil {
+				log.Printf("could not read: %s\n", err)
+				return
 			}
 
 			atomic.AddInt64(&stats.ConnectionsTotal, 1)

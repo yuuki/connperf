@@ -1,6 +1,6 @@
 # connperf
 
-connperf is a measturement tool for TCP connections in Go.
+connperf is a measturement tool for TCP/UDP connections in Go.
 
 ## Examples
 
@@ -10,8 +10,13 @@ Run as a server.
 connperf serve -l 127.0.0.1:9100
 ```
 
-Give the server load as a client.
+Run as a client to put a load on the server.
 
 ```shell
-connperf connect --connections 1000 --rate 100 --duration 15s 12.0.0.1:9100
+connperf connect --type ephemeral --rate 1000 --duration 15s 127.0.0.1:9100
 ```
+
+```shell
+connperf connect --type persistent --connections 1000 --duration 15s 127.0.0.1:9100
+```
+

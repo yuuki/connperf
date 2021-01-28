@@ -199,7 +199,7 @@ func connectUDP(addrport string) error {
 		}
 		go func() {
 			// create socket
-			conn, err := net.Dial("udp", addrport)
+			conn, err := net.Dial("udp4", addrport)
 			if err != nil {
 				log.Printf("could not dial %q: %s", addrport, err)
 				return

@@ -120,7 +120,7 @@ var bufUDPPool sync.Pool
 
 func serveUDP() error {
 	// create listening socket
-	ln, err := net.ListenPacket("udp", listenAddr)
+	ln, err := net.ListenPacket("udp4", listenAddr)
 	if err != nil {
 		return fmt.Errorf("listen %q error: %s", listenAddr, err)
 	}

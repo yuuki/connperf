@@ -38,4 +38,4 @@ jobs:
 
       - name: Push to GitHub Packages
         if: github.event_name != 'pull_request'
-        run: docker pysh "${DOCKER_BASE_NAME}:latest" .
+        run: docker push "${DOCKER_BASE_NAME}:latest" .

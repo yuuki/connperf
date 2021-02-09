@@ -28,7 +28,7 @@ jobs:
         run: |
           docker build -t "${DOCKER_BASE_NAME}:latest" .
 
-      - name: Login to Registries
+      - name: Login
         if: github.event_name != 'pull_request'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -38,4 +38,4 @@ jobs:
 
       - name: Push to GitHub Packages
         if: github.event_name != 'pull_request'
-        run: docker push "${DOCKER_BASE_NAME}:latest" .
+        run: docker push "${DOCKER_BASE_NAME}:latest"

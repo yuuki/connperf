@@ -1,0 +1,41 @@
+name: Publish Docker image
+on:
+  push:
+    branches:
+    - master
+    paths-ignore:
+    - '**.md'
+  release:
+    types: [published]
+  pull_request:
+    types: [opened, synchronize]
+    paths-ignore:
+    - '**.md'
+
+env:
+  DOCKER_BASE_NAME: docker.pkg.github.com/${{ github.repository }}/connperf
+
+jobs:
+  push_to_registry:
+    name: Push Docker image to GitHub Packages
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 1
+
+      - name: Build base image
+        run: |
+          docker build -t "${DOCKER_BASE_NAME}:latest" .
+
+      - name: Login to Registries
+        if: github.event_name != 'pull_request'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DOCKER_HUB_TOKEN: ${{ secrets.DOCKER_HUB_TOKEN }}
+        run: |
+          echo "${GITHUB_TOKEN}" | docker login docker.pkg.github.com -u yuuki --password-stdin
+
+      - name: Push to GitHub Packages
+        if: github.event_name != 'pull_request'
+        run: docker pysh "${DOCKER_BASE_NAME}:latest" .

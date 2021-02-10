@@ -17,6 +17,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -168,7 +169,9 @@ func connectEphemeral(addrport string) error {
 	var i int32
 	for i = 0; i < connTotal; i++ {
 		if err := limiter.Wait(ctx); err != nil {
-			log.Println(err)
+			if !errors.Is(err, context.DeadlineExceeded) {
+				log.Println(err)
+			}
 			continue
 		}
 		wg.Add(1)
@@ -211,7 +214,9 @@ func connectUDP(addrport string) error {
 	var i int32
 	for i = 0; i < connTotal; i++ {
 		if err := limiter.Wait(ctx); err != nil {
-			log.Println(err)
+			if !errors.Is(err, context.DeadlineExceeded) {
+				log.Println(err)
+			}
 			continue
 		}
 		wg.Add(1)

@@ -118,6 +118,7 @@ func connectPersistent(addrport string) error {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
+
 			conn, err := net.Dial("tcp", addrport)
 			if err != nil {
 				log.Printf("could not dial %q: %s", addrport, err)
@@ -151,13 +152,17 @@ func connectEphemeral(addrport string) error {
 	tr := rate.Every(time.Second / time.Duration(connectRate))
 	limiter := rate.NewLimiter(tr, 1)
 
+	wg := &sync.WaitGroup{}
 	var i int32
 	for i = 0; i < connTotal; i++ {
 		if err := limiter.Wait(ctx); err != nil {
 			log.Println(err)
 			continue
 		}
+		wg.Add(1)
 		go func() {
+			defer wg.Done()
+
 			conn, err := net.Dial("tcp", addrport)
 			if err != nil {
 				log.Printf("could not dial %q: %s", addrport, err)
@@ -172,6 +177,7 @@ func connectEphemeral(addrport string) error {
 			opsRate.Mark(1)
 		}()
 	}
+	wg.Wait()
 
 	return nil
 }
@@ -188,13 +194,17 @@ func connectUDP(addrport string) error {
 		New: func() interface{} { return make([]byte, UDPPacketSize) },
 	}
 
+	wg := &sync.WaitGroup{}
 	var i int32
 	for i = 0; i < connTotal; i++ {
 		if err := limiter.Wait(ctx); err != nil {
 			log.Println(err)
 			continue
 		}
+		wg.Add(1)
 		go func() {
+			defer wg.Done()
+
 			// create socket
 			conn, err := net.Dial("udp4", addrport)
 			if err != nil {
@@ -222,6 +232,7 @@ func connectUDP(addrport string) error {
 			opsRate.Mark(1)
 		}()
 	}
+	wg.Wait()
 
 	return nil
 }

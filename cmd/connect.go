@@ -37,8 +37,7 @@ const (
 )
 
 var (
-	udp bool
-
+	protocol    string
 	connectType string
 	connections int32
 	connectRate int32
@@ -58,19 +57,21 @@ var connectCmd = &cobra.Command{
 		default:
 			return fmt.Errorf("undefined connect mode %q", connectType)
 		}
+
+		switch protocol {
+		case "tcp":
+		case "udp":
+		default:
+			return fmt.Errorf("unexpected protocol %q", protocol)
+		}
 		return nil
 	},
 	RunE: func(cmd *cobra.Command, args []string) error {
-		if udp {
-			addr := cmd.Flags().Arg(0)
-			if err := connectUDP(addr); err != nil {
-				return err
-			}
-			printStats(cmd.OutOrStdout())
-		} else {
+		addr := cmd.Flags().Arg(0)
+		switch protocol {
+		case "tcp":
 			switch connectType {
 			case connectTypePersistent:
-				addr := cmd.Flags().Arg(0)
 				cmd.Printf("Trying to connect to %q with %q connections (connections: %d, duration: %s)...\n",
 					addr, connectTypePersistent, connections, duration)
 				if err := connectPersistent(addr); err != nil {
@@ -78,16 +79,18 @@ var connectCmd = &cobra.Command{
 				}
 				printStats(cmd.OutOrStdout())
 			case connectTypeEphemeral:
-				addr := cmd.Flags().Arg(0)
 				cmd.Printf("Trying to connect to %q with %q connections (rate: %d, duration: %s)\n",
 					addr, connectTypeEphemeral, connectRate, duration)
 				if err := connectEphemeral(addr); err != nil {
 					return err
 				}
 				printStats(cmd.OutOrStdout())
-			default:
-				return fmt.Errorf("undefined connect mode %q", connectType)
 			}
+		case "udp":
+			if err := connectUDP(addr); err != nil {
+				return err
+			}
+			printStats(cmd.OutOrStdout())
 		}
 		return nil
 	},
@@ -96,8 +99,7 @@ var connectCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(connectCmd)
 
-	connectCmd.Flags().BoolVar(&udp, "udp", false, "UDP mode")
-
+	connectCmd.Flags().StringVarP(&protocol, "proto", "p", "tcp", "protocol (tcp or udp)")
 	connectCmd.Flags().StringVar(&connectType, "type", connectTypePersistent,
 		fmt.Sprintf("connect behavior type '%s' or '%s'", connectTypePersistent, connectTypeEphemeral),
 	)

@@ -22,6 +22,7 @@ import (
 	"io"
 	"log"
 	"net"
+	"strings"
 	"sync"
 	"time"
 
@@ -169,7 +170,8 @@ func connectEphemeral(addrport string) error {
 	var i int32
 	for i = 0; i < connTotal; i++ {
 		if err := limiter.Wait(ctx); err != nil {
-			if !errors.Is(err, context.DeadlineExceeded) {
+			if !errors.Is(err, context.DeadlineExceeded) &&
+				!strings.Contains(err.Error(), "would exceed context deadline") {
 				log.Printf("rate limiter failed wait: %s\n", err)
 			}
 			continue
@@ -214,7 +216,8 @@ func connectUDP(addrport string) error {
 	var i int32
 	for i = 0; i < connTotal; i++ {
 		if err := limiter.Wait(ctx); err != nil {
-			if !errors.Is(err, context.DeadlineExceeded) {
+			if !errors.Is(err, context.DeadlineExceeded) &&
+				!strings.Contains(err.Error(), "would exceed context deadline") {
 				log.Println(err)
 			}
 			continue

@@ -170,7 +170,7 @@ func connectEphemeral(addrport string) error {
 	for i = 0; i < connTotal; i++ {
 		if err := limiter.Wait(ctx); err != nil {
 			if !errors.Is(err, context.DeadlineExceeded) {
-				log.Println(err)
+				log.Printf("rate limiter failed wait: %s\n", err)
 			}
 			continue
 		}

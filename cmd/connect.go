@@ -42,7 +42,7 @@ var (
 	connectRate int32
 	duration    time.Duration
 
-	opsRate = metrics.NewRegisteredMeter("ops", nil)
+	opsLatency = metrics.NewRegisteredTimer("latency", nil)
 )
 
 // connectCmd represents the connect command
@@ -106,9 +106,21 @@ func init() {
 	connectCmd.Flags().DurationVarP(&duration, "duration", "d", 10*time.Second, "Measurement period")
 }
 
+func toMilliseconds(n int64) int64 {
+	return time.Duration(n).Microseconds()
+}
+func toMillisecondsf(n float64) int64 {
+	return time.Duration(n).Microseconds()
+}
+
 func printStats(w io.Writer) {
 	fmt.Fprintf(w, "--- Execution results of connperf ---\n")
-	fmt.Fprintf(w, "Total number of connections: %d\n", opsRate.Count())
+	fmt.Fprintf(w, "Total number of connections: %d\n", opsLatency.Count())
+	fmt.Fprintf(w, "Connect latency (max): %d µs\n", toMilliseconds(opsLatency.Max()))
+	fmt.Fprintf(w, "Connect latency (min): %d µs\n", toMilliseconds(opsLatency.Min()))
+	fmt.Fprintf(w, "Connect latency (mean): %d µs\n", toMillisecondsf(opsLatency.Mean()))
+	fmt.Fprintf(w, "Connect latency (90p): %d µs\n", toMillisecondsf(opsLatency.Percentile(90.0)))
+	fmt.Fprintf(w, "Rate: %.2f /s \n", opsLatency.Rate1())
 }
 
 func connectPersistent(addrport string) error {
@@ -137,7 +149,7 @@ func connectPersistent(addrport string) error {
 				return
 			}
 
-			opsRate.Mark(1)
+			opsLatency.Update(1) // just use count
 		}()
 	}
 	wg.Wait()
@@ -163,18 +175,19 @@ func connectEphemeral(addrport string) error {
 		go func() {
 			defer wg.Done()
 
-			conn, err := net.Dial("tcp", addrport)
-			if err != nil {
-				log.Printf("could not dial %q: %s", addrport, err)
-			}
-			if _, err := conn.Write([]byte("Hello")); err != nil {
-				log.Printf("could not write: %s\n", err)
-			}
-			if err := conn.Close(); err != nil {
-				log.Printf("could not close: %s\n", err)
-			}
-
-			opsRate.Mark(1)
+			// start timer of measuring latency
+			opsLatency.Time(func() {
+				conn, err := net.Dial("tcp", addrport)
+				if err != nil {
+					log.Printf("could not dial %q: %s", addrport, err)
+				}
+				if _, err := conn.Write([]byte("Hello")); err != nil {
+					log.Printf("could not write: %s\n", err)
+				}
+				if err := conn.Close(); err != nil {
+					log.Printf("could not close: %s\n", err)
+				}
+			})
 		}()
 	}
 	wg.Wait()
@@ -205,31 +218,32 @@ func connectUDP(addrport string) error {
 		go func() {
 			defer wg.Done()
 
-			// create socket
-			conn, err := net.Dial("udp4", addrport)
-			if err != nil {
-				log.Printf("could not dial %q: %s", addrport, err)
-				return
-			}
-			defer func() {
-				if err := conn.Close(); err != nil {
-					log.Printf("could not close: %s\n", err)
+			// start timer of measuring latency
+			opsLatency.Time(func() {
+				// create socket
+				conn, err := net.Dial("udp4", addrport)
+				if err != nil {
+					log.Printf("could not dial %q: %s", addrport, err)
+					return
 				}
-			}()
+				defer func() {
+					if err := conn.Close(); err != nil {
+						log.Printf("could not close: %s\n", err)
+					}
+				}()
 
-			msg := bufUDPPool.Get().([]byte)
-			defer func() { bufUDPPool.Put(msg) }()
+				msg := bufUDPPool.Get().([]byte)
+				defer func() { bufUDPPool.Put(msg) }()
 
-			if _, err := conn.Write([]byte("Hello")); err != nil {
-				log.Printf("could not write: %s\n", err)
-				return
-			}
-			if _, err := conn.Read(msg); err != nil {
-				log.Printf("could not read: %s\n", err)
-				return
-			}
-
-			opsRate.Mark(1)
+				if _, err := conn.Write([]byte("Hello")); err != nil {
+					log.Printf("could not write: %s\n", err)
+					return
+				}
+				if _, err := conn.Read(msg); err != nil {
+					log.Printf("could not read: %s\n", err)
+					return
+				}
+			})
 		}()
 	}
 	wg.Wait()

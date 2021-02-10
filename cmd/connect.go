@@ -22,9 +22,9 @@ import (
 	"log"
 	"net"
 	"sync"
-	"sync/atomic"
 	"time"
 
+	"github.com/rcrowley/go-metrics"
 	"github.com/spf13/cobra"
 	"golang.org/x/time/rate"
 )
@@ -34,15 +34,6 @@ const (
 	connectTypeEphemeral  = "ephemeral"
 )
 
-type reportStats struct {
-	ConnectionsTotal int64
-}
-
-func (s reportStats) Print(w io.Writer) {
-	fmt.Fprintf(w, "--- Execution results of connperf ---\n")
-	fmt.Fprintf(w, "Total number of connections: %d\n", s.ConnectionsTotal)
-}
-
 var (
 	udp bool
 
@@ -51,7 +42,7 @@ var (
 	connectRate int32
 	duration    time.Duration
 
-	stats reportStats
+	opsRate = metrics.NewRegisteredMeter("ops", nil)
 )
 
 // connectCmd represents the connect command
@@ -73,28 +64,29 @@ var connectCmd = &cobra.Command{
 			if err := connectUDP(addr); err != nil {
 				return err
 			}
-			stats.Print(cmd.OutOrStdout())
-			return nil
-		}
-		switch connectType {
-		case connectTypePersistent:
-			addr := cmd.Flags().Arg(0)
-			cmd.Printf("Trying to connect to %q with %q connections (connections: %d, duration: %s)...\n",
-				addr, connectTypePersistent, connections, duration)
-			if err := connectPersistent(addr); err != nil {
-				return err
+			printStats(cmd.OutOrStdout())
+		} else {
+			switch connectType {
+			case connectTypePersistent:
+				addr := cmd.Flags().Arg(0)
+				cmd.Printf("Trying to connect to %q with %q connections (connections: %d, duration: %s)...\n",
+					addr, connectTypePersistent, connections, duration)
+				if err := connectPersistent(addr); err != nil {
+					return err
+				}
+				printStats(cmd.OutOrStdout())
+			case connectTypeEphemeral:
+				addr := cmd.Flags().Arg(0)
+				cmd.Printf("Trying to connect to %q with %q connections (rate: %d, duration: %s)\n",
+					addr, connectTypeEphemeral, connectRate, duration)
+				if err := connectEphemeral(addr); err != nil {
+					return err
+				}
+				printStats(cmd.OutOrStdout())
+			default:
+				return fmt.Errorf("undefined connect mode %q", connectType)
 			}
-		case connectTypeEphemeral:
-			addr := cmd.Flags().Arg(0)
-			cmd.Printf("Trying to connect to %q with %q connections (rate: %d, duration: %s)\n",
-				addr, connectTypeEphemeral, connectRate, duration)
-			if err := connectEphemeral(addr); err != nil {
-				return err
-			}
-		default:
-			return fmt.Errorf("undefined connect mode %q", connectType)
 		}
-		stats.Print(cmd.OutOrStdout())
 		return nil
 	},
 }
@@ -112,6 +104,11 @@ func init() {
 	connectCmd.Flags().Int32VarP(&connectRate, "rate", "r", 100,
 		fmt.Sprintf("New connections throughput (/s) (only for '%s')", connectTypeEphemeral))
 	connectCmd.Flags().DurationVarP(&duration, "duration", "d", 10*time.Second, "Measurement period")
+}
+
+func printStats(w io.Writer) {
+	fmt.Fprintf(w, "--- Execution results of connperf ---\n")
+	fmt.Fprintf(w, "Total number of connections: %d\n", opsRate.Count())
 }
 
 func connectPersistent(addrport string) error {
@@ -139,7 +136,7 @@ func connectPersistent(addrport string) error {
 				return
 			}
 
-			atomic.AddInt64(&stats.ConnectionsTotal, 1)
+			opsRate.Mark(1)
 		}()
 	}
 	wg.Wait()
@@ -172,7 +169,7 @@ func connectEphemeral(addrport string) error {
 				log.Printf("could not close: %s\n", err)
 			}
 
-			atomic.AddInt64(&stats.ConnectionsTotal, 1)
+			opsRate.Mark(1)
 		}()
 	}
 
@@ -222,7 +219,7 @@ func connectUDP(addrport string) error {
 				return
 			}
 
-			atomic.AddInt64(&stats.ConnectionsTotal, 1)
+			opsRate.Mark(1)
 		}()
 	}
 

@@ -121,7 +121,9 @@ func printStats(w io.Writer) {
 	fmt.Fprintf(w, "Connect latency (max): %d µs\n", toMilliseconds(opsLatency.Max()))
 	fmt.Fprintf(w, "Connect latency (min): %d µs\n", toMilliseconds(opsLatency.Min()))
 	fmt.Fprintf(w, "Connect latency (mean): %d µs\n", toMillisecondsf(opsLatency.Mean()))
-	fmt.Fprintf(w, "Connect latency (90p): %d µs\n", toMillisecondsf(opsLatency.Percentile(90.0)))
+	fmt.Fprintf(w, "Connect latency (90p): %d µs\n", toMillisecondsf(opsLatency.Percentile(0.9)))
+	fmt.Fprintf(w, "Connect latency (95p): %d µs\n", toMillisecondsf(opsLatency.Percentile(0.95)))
+	fmt.Fprintf(w, "Connect latency (99p): %d µs\n", toMillisecondsf(opsLatency.Percentile(0.99)))
 	fmt.Fprintf(w, "Rate: %.2f /s \n", opsLatency.Rate1())
 }
 

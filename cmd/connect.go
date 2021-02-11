@@ -147,6 +147,7 @@ func printLineTick(w io.Writer, stop chan struct{}) {
 	printHeader(w)
 	go func() {
 		t := time.NewTicker(intervalStats)
+		defer t.Stop()
 		for {
 			select {
 			case <-stop:

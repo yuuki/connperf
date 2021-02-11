@@ -34,6 +34,8 @@ import (
 const (
 	connectTypePersistent = "persistent"
 	connectTypeEphemeral  = "ephemeral"
+
+	printStatsInterval = 5 * time.Second
 )
 
 var (
@@ -68,29 +70,33 @@ var connectCmd = &cobra.Command{
 	},
 	RunE: func(cmd *cobra.Command, args []string) error {
 		addr := cmd.Flags().Arg(0)
+
+		stop := make(chan struct{})
+		defer close(stop)
+
 		switch protocol {
 		case "tcp":
 			switch connectType {
 			case connectTypePersistent:
 				cmd.Printf("Trying to connect to %q with %q connections (connections: %d, duration: %s)...\n",
 					addr, connectTypePersistent, connections, duration)
+				printLineTick(cmd.OutOrStdout(), printStatsInterval, stop)
 				if err := connectPersistent(addr); err != nil {
 					return err
 				}
-				printStats(cmd.OutOrStdout())
 			case connectTypeEphemeral:
 				cmd.Printf("Trying to connect to %q with %q connections (rate: %d, duration: %s)\n",
 					addr, connectTypeEphemeral, connectRate, duration)
+				printLineTick(cmd.OutOrStdout(), printStatsInterval, stop)
 				if err := connectEphemeral(addr); err != nil {
 					return err
 				}
-				printStats(cmd.OutOrStdout())
 			}
 		case "udp":
+			printLineTick(cmd.OutOrStdout(), printStatsInterval, stop)
 			if err := connectUDP(addr); err != nil {
 				return err
 			}
-			printStats(cmd.OutOrStdout())
 		}
 		return nil
 	},
@@ -117,16 +123,40 @@ func toMillisecondsf(n float64) int64 {
 	return time.Duration(n).Microseconds()
 }
 
-func printStats(w io.Writer) {
-	fmt.Fprintf(w, "--- Execution results of connperf ---\n")
-	fmt.Fprintf(w, "Total number of connections: %d\n", opsLatency.Count())
-	fmt.Fprintf(w, "Connect latency (max): %d µs\n", toMilliseconds(opsLatency.Max()))
-	fmt.Fprintf(w, "Connect latency (min): %d µs\n", toMilliseconds(opsLatency.Min()))
-	fmt.Fprintf(w, "Connect latency (mean): %d µs\n", toMillisecondsf(opsLatency.Mean()))
-	fmt.Fprintf(w, "Connect latency (90p): %d µs\n", toMillisecondsf(opsLatency.Percentile(0.9)))
-	fmt.Fprintf(w, "Connect latency (95p): %d µs\n", toMillisecondsf(opsLatency.Percentile(0.95)))
-	fmt.Fprintf(w, "Connect latency (99p): %d µs\n", toMillisecondsf(opsLatency.Percentile(0.99)))
-	fmt.Fprintf(w, "Rate: %.2f /s \n", opsLatency.Rate1())
+func printHeader(w io.Writer) {
+	fmt.Printf("%-10s %-15s %-15s %-15s %-15s %-15s %-15s %-10s\n",
+		"CNT", "LAT_MAX(µs)", "LAT_MIN(µs)", "LAT_MEAN(µs)",
+		"LAT_90p(µs)", "LAT_95p(µs)", "LAT_99p(µs)", "RATE(/s)")
+}
+
+func printLine(w io.Writer) {
+	fmt.Fprintf(w, "%-10d %-15d %-15d %-15d %-15d %-15d %-15d %-10.2f\n",
+		opsLatency.Count(),
+		toMilliseconds(opsLatency.Max()),
+		toMilliseconds(opsLatency.Min()),
+		toMillisecondsf(opsLatency.Mean()),
+		toMillisecondsf(opsLatency.Percentile(0.9)),
+		toMillisecondsf(opsLatency.Percentile(0.95)),
+		toMillisecondsf(opsLatency.Percentile(0.99)),
+		opsLatency.Rate1(),
+	)
+}
+
+func printLineTick(w io.Writer, interval time.Duration, stop chan struct{}) {
+	printHeader(w)
+	go func() {
+		t := time.NewTicker(interval)
+		for {
+			select {
+			case <-stop:
+				goto END
+			case <-t.C:
+				printLine(w)
+			}
+		}
+	END:
+		printLine(w)
+	}()
 }
 
 func connectPersistent(addrport string) error {

@@ -34,16 +34,15 @@ import (
 const (
 	connectTypePersistent = "persistent"
 	connectTypeEphemeral  = "ephemeral"
-
-	printStatsInterval = 5 * time.Second
 )
 
 var (
-	protocol    string
-	connectType string
-	connections int32
-	connectRate int32
-	duration    time.Duration
+	protocol      string
+	intervalStats time.Duration
+	connectType   string
+	connections   int32
+	connectRate   int32
+	duration      time.Duration
 
 	opsLatency = metrics.NewRegisteredTimer("latency", nil)
 )
@@ -80,20 +79,20 @@ var connectCmd = &cobra.Command{
 			case connectTypePersistent:
 				cmd.Printf("Trying to connect to %q with %q connections (connections: %d, duration: %s)...\n",
 					addr, connectTypePersistent, connections, duration)
-				printLineTick(cmd.OutOrStdout(), printStatsInterval, stop)
+				printLineTick(cmd.OutOrStdout(), stop)
 				if err := connectPersistent(addr); err != nil {
 					return err
 				}
 			case connectTypeEphemeral:
 				cmd.Printf("Trying to connect to %q with %q connections (rate: %d, duration: %s)\n",
 					addr, connectTypeEphemeral, connectRate, duration)
-				printLineTick(cmd.OutOrStdout(), printStatsInterval, stop)
+				printLineTick(cmd.OutOrStdout(), stop)
 				if err := connectEphemeral(addr); err != nil {
 					return err
 				}
 			}
 		case "udp":
-			printLineTick(cmd.OutOrStdout(), printStatsInterval, stop)
+			printLineTick(cmd.OutOrStdout(), stop)
 			if err := connectUDP(addr); err != nil {
 				return err
 			}
@@ -106,6 +105,8 @@ func init() {
 	rootCmd.AddCommand(connectCmd)
 
 	connectCmd.Flags().StringVarP(&protocol, "proto", "p", "tcp", "protocol (tcp or udp)")
+	i := connectCmd.Flags().IntP("interval", "i", 5, "interval for printing stats")
+	intervalStats = time.Duration(*i) * time.Second
 	connectCmd.Flags().StringVar(&connectType, "type", connectTypePersistent,
 		fmt.Sprintf("connect behavior type '%s' or '%s'", connectTypePersistent, connectTypeEphemeral),
 	)
@@ -142,10 +143,10 @@ func printLine(w io.Writer) {
 	)
 }
 
-func printLineTick(w io.Writer, interval time.Duration, stop chan struct{}) {
+func printLineTick(w io.Writer, stop chan struct{}) {
 	printHeader(w)
 	go func() {
-		t := time.NewTicker(interval)
+		t := time.NewTicker(intervalStats)
 		for {
 			select {
 			case <-stop:

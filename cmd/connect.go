@@ -160,7 +160,7 @@ func printLineTick(w io.Writer, stop chan struct{}, done chan struct{}) {
 				printLine(w, is)
 				metrics.Unregister("instant.latency")
 			case <-stop:
-				fmt.Fprintln(w, "--- Report the total execution time ---")
+				fmt.Fprintln(w, "--- A result during total execution time ---")
 				printLine(w, globalStats)
 				globalStats.Stop()
 				return

@@ -32,11 +32,12 @@ $ connperf connect --proto udp --rate 1000 --duration 15s 127.0.0.1:9100
 
 ```shell
 $ connperf connect --proto tcp --type ephemeral --rate 1000 --duration 30s 127.0.0.1:9100
-Trying to connect to "127.0.0.1:9100" with "ephemeral" connections (rate: 1000, duration: 30s)
 CNT        LAT_MAX(µs)     LAT_MIN(µs)     LAT_MEAN(µs)    LAT_90p(µs)     LAT_95p(µs)     LAT_99p(µs)     RATE(/s)
-4985       7277            274             432             496             546             1366            997.00
-4999       4836            271             421             489             524             661             999.80
-4997       2082            304             459             528             560             799             999.20
-4998       4400            291             461             538             571             827             999.40
-4997       7312            264             425             506             542             943             999.40
+5000       1931            257             396             484             510             607             1000.00
+4998       2756            270             416             493             533             805             999.40
+4998       8665            276             412             479             517             741             999.40
+4999       4017            255             394             460             490             620             999.60
+4998       3595            263             396             459             501             791             999.60
+--- A result during total execution time ---
+29996      2827            267             401             477             509             675             999.95
 ```

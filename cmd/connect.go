@@ -44,7 +44,7 @@ var (
 	connectRate   int32
 	duration      time.Duration
 
-	opsLatency = metrics.NewRegisteredTimer("latency", nil)
+	globalStats = metrics.NewRegisteredTimer("latency", nil)
 )
 
 // connectCmd represents the connect command
@@ -130,16 +130,16 @@ func printHeader(w io.Writer) {
 		"LAT_90p(µs)", "LAT_95p(µs)", "LAT_99p(µs)", "RATE(/s)")
 }
 
-func printLine(w io.Writer) {
+func printLine(w io.Writer, stat metrics.Timer) {
 	fmt.Fprintf(w, "%-10d %-15d %-15d %-15d %-15d %-15d %-15d %-10.2f\n",
-		opsLatency.Count(),
-		toMilliseconds(opsLatency.Max()),
-		toMilliseconds(opsLatency.Min()),
-		toMillisecondsf(opsLatency.Mean()),
-		toMillisecondsf(opsLatency.Percentile(0.9)),
-		toMillisecondsf(opsLatency.Percentile(0.95)),
-		toMillisecondsf(opsLatency.Percentile(0.99)),
-		opsLatency.Rate1(),
+		stat.Count(),
+		toMilliseconds(stat.Max()),
+		toMilliseconds(stat.Min()),
+		toMillisecondsf(stat.Mean()),
+		toMillisecondsf(stat.Percentile(0.9)),
+		toMillisecondsf(stat.Percentile(0.95)),
+		toMillisecondsf(stat.Percentile(0.99)),
+		stat.Rate1(),
 	)
 }
 
@@ -150,15 +150,30 @@ func printLineTick(w io.Writer, stop chan struct{}) {
 		defer t.Stop()
 		for {
 			select {
-			case <-stop:
-				goto END
 			case <-t.C:
-				printLine(w)
+				is := metrics.GetOrRegisterTimer("instant.latency", nil)
+				printLine(w, is)
+				metrics.Unregister("instant.latency")
+			case <-stop:
+				printLine(w, globalStats)
+				globalStats.Stop()
+				return
 			}
 		}
-	END:
-		printLine(w)
 	}()
+}
+
+func meastureTime(f func()) {
+	is := metrics.GetOrRegisterTimer("instant.latency", nil)
+	globalStats.Time(func() {
+		is.Time(f)
+	})
+}
+
+func updateStat(n time.Duration) {
+	globalStats.Update(n)
+	is := metrics.GetOrRegisterTimer("instant.latency", nil)
+	is.Update(n)
 }
 
 func connectPersistent(addrport string) error {
@@ -187,7 +202,7 @@ func connectPersistent(addrport string) error {
 				return
 			}
 
-			opsLatency.Update(1) // just use count
+			updateStat(1)
 		}()
 	}
 	wg.Wait()
@@ -217,7 +232,7 @@ func connectEphemeral(addrport string) error {
 			defer wg.Done()
 
 			// start timer of measuring latency
-			opsLatency.Time(func() {
+			meastureTime(func() {
 				conn, err := net.Dial("tcp", addrport)
 				if err != nil {
 					log.Printf("could not dial %q: %s", addrport, err)
@@ -263,7 +278,7 @@ func connectUDP(addrport string) error {
 			defer wg.Done()
 
 			// start timer of measuring latency
-			opsLatency.Time(func() {
+			meastureTime(func() {
 				// create socket
 				conn, err := net.Dial("udp4", addrport)
 				if err != nil {

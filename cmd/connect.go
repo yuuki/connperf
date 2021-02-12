@@ -72,6 +72,8 @@ var connectCmd = &cobra.Command{
 
 		stop := make(chan struct{})
 		defer close(stop)
+		done := make(chan struct{})
+		defer close(done)
 
 		switch protocol {
 		case "tcp":
@@ -79,24 +81,26 @@ var connectCmd = &cobra.Command{
 			case connectTypePersistent:
 				cmd.Printf("Trying to connect to %q with %q connections (connections: %d, duration: %s)...\n",
 					addr, connectTypePersistent, connections, duration)
-				printLineTick(cmd.OutOrStdout(), stop)
+				printLineTick(cmd.OutOrStdout(), stop, done)
 				if err := connectPersistent(addr); err != nil {
 					return err
 				}
 			case connectTypeEphemeral:
 				cmd.Printf("Trying to connect to %q with %q connections (rate: %d, duration: %s)\n",
 					addr, connectTypeEphemeral, connectRate, duration)
-				printLineTick(cmd.OutOrStdout(), stop)
+				printLineTick(cmd.OutOrStdout(), stop, done)
 				if err := connectEphemeral(addr); err != nil {
 					return err
 				}
 			}
 		case "udp":
-			printLineTick(cmd.OutOrStdout(), stop)
+			printLineTick(cmd.OutOrStdout(), stop, done)
 			if err := connectUDP(addr); err != nil {
 				return err
 			}
 		}
+		stop <- struct{}{}
+		<-done // wait for completing goroutine.
 		return nil
 	},
 }
@@ -143,9 +147,10 @@ func printLine(w io.Writer, stat metrics.Timer) {
 	)
 }
 
-func printLineTick(w io.Writer, stop chan struct{}) {
+func printLineTick(w io.Writer, stop chan struct{}, done chan struct{}) {
 	printHeader(w)
 	go func() {
+		defer func() { done <- struct{}{} }()
 		t := time.NewTicker(intervalStats)
 		defer t.Stop()
 		for {
@@ -155,6 +160,7 @@ func printLineTick(w io.Writer, stop chan struct{}) {
 				printLine(w, is)
 				metrics.Unregister("instant.latency")
 			case <-stop:
+				fmt.Fprintln(w, "--- Report the total execution time ---")
 				printLine(w, globalStats)
 				globalStats.Stop()
 				return

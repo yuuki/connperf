@@ -31,7 +31,7 @@ $ connperf connect --proto udp --rate 1000 --duration 15s 127.0.0.1:9100
 ### Reports
 
 ```shell
-$ connperf connect --proto tcp --type ephemeral  -r 1000 -d 30s 127.0.0.1:9100
+$ connperf connect --proto tcp --type ephemeral --rate 1000 --duration 30s 127.0.0.1:9100
 Trying to connect to "127.0.0.1:9100" with "ephemeral" connections (rate: 1000, duration: 30s)
 CNT        LAT_MAX(µs)     LAT_MIN(µs)     LAT_MEAN(µs)    LAT_90p(µs)     LAT_95p(µs)     LAT_99p(µs)     RATE(/s)
 4985       7277            274             432             496             546             1366            997.00

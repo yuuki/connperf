@@ -38,12 +38,13 @@ const (
 )
 
 var (
-	protocol      string
-	intervalStats time.Duration
-	connectFlavor string
-	connections   int32
-	connectRate   int32
-	duration      time.Duration
+	protocol        string
+	intervalStats   time.Duration
+	connectFlavor   string
+	connections     int32
+	connectRate     int32
+	duration        time.Duration
+	showOnlyResults bool
 )
 
 // connectCmd represents the connect command
@@ -89,7 +90,8 @@ func init() {
 		fmt.Sprintf("Number of connections to keep (only for '%s')l", flavorPersistent))
 	connectCmd.Flags().Int32VarP(&connectRate, "rate", "r", 100,
 		fmt.Sprintf("New connections throughput (/s) (only for '%s')", flavorEphemeral))
-	connectCmd.Flags().DurationVarP(&duration, "duration", "d", 10*time.Second, "Measurement period")
+	connectCmd.Flags().DurationVarP(&duration, "duration", "d", 10*time.Second, "measurement period")
+	connectCmd.Flags().BoolVar(&showOnlyResults, "show-only-results", true, "print only results of measurement stats")
 }
 
 func runConnectCmd(cmd *cobra.Command, args []string) error {
@@ -99,13 +101,19 @@ func runConnectCmd(cmd *cobra.Command, args []string) error {
 	for _, addr := range args {
 		addr := addr
 		eg.Go(func() error {
-			stop := make(chan struct{})
-			defer close(stop)
-			runStatLinePrinter(cmd.OutOrStdout(), addr, stop)
-			if err := connectAddr(addr); err != nil {
-				return err
+			if showOnlyResults {
+				if err := connectAddr(addr); err != nil {
+					return err
+				}
+			} else {
+				stop := make(chan struct{})
+				defer close(stop)
+				runStatLinePrinter(cmd.OutOrStdout(), addr, stop)
+				if err := connectAddr(addr); err != nil {
+					return err
+				}
+				stop <- struct{}{}
 			}
-			stop <- struct{}{}
 			return nil
 		})
 	}

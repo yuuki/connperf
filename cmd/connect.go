@@ -111,7 +111,7 @@ func init() {
 	connectCmd.Flags().StringVarP(&protocol, "proto", "p", "tcp", "protocol (tcp or udp)")
 	i := connectCmd.Flags().IntP("interval", "i", 5, "interval for printing stats")
 	intervalStats = time.Duration(*i) * time.Second
-	connectCmd.Flags().StringVar{(&connectFlavor, "flavor", "f", flavorPersistent,
+	connectCmd.Flags().StringVarP(&connectFlavor, "flavor", "f", flavorPersistent,
 		fmt.Sprintf("connect behavior type '%s' or '%s'", flavorPersistent, flavorEphemeral),
 	)
 	connectCmd.Flags().Int32VarP(&connections, "connections", "c", 10,

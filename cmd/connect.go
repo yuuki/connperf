@@ -102,7 +102,7 @@ func runConnectCmd(cmd *cobra.Command, args []string) error {
 			stop := make(chan struct{})
 			defer close(stop)
 			runStatLinePrinter(cmd.OutOrStdout(), addr, stop)
-			if err := runConnect(cmd, addr); err != nil {
+			if err := connectAddr(addr); err != nil {
 				return err
 			}
 			stop <- struct{}{}
@@ -123,19 +123,15 @@ func runConnectCmd(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func runConnect(cmd *cobra.Command, addr string) error {
+func connectAddr(addr string) error {
 	switch protocol {
 	case "tcp":
 		switch connectFlavor {
 		case flavorPersistent:
-			cmd.Printf("Trying to connect to %q with %q connections (connections: %d, duration: %s)...\n",
-				addr, flavorPersistent, connections, duration)
 			if err := connectPersistent(addr); err != nil {
 				return err
 			}
 		case flavorEphemeral:
-			cmd.Printf("Trying to connect to %q with %q connections (rate: %d, duration: %s)\n",
-				addr, flavorEphemeral, connectRate, duration)
 			if err := connectEphemeral(addr); err != nil {
 				return err
 			}

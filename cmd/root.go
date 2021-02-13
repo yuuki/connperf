@@ -22,6 +22,14 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// These variables are set in build step
+var (
+	// Version is a tool version.
+	Version = "unset"
+	// Revision is a git revision.
+	Revision = "unset"
+)
+
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "connperf",

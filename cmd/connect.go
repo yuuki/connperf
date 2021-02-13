@@ -67,42 +67,7 @@ var connectCmd = &cobra.Command{
 		}
 		return nil
 	},
-	RunE: func(cmd *cobra.Command, args []string) error {
-		addr := cmd.Flags().Arg(0)
-
-		stop := make(chan struct{})
-		defer close(stop)
-		done := make(chan struct{})
-		defer close(done)
-
-		switch protocol {
-		case "tcp":
-			switch connectFlavor {
-			case flavorPersistent:
-				cmd.Printf("Trying to connect to %q with %q connections (connections: %d, duration: %s)...\n",
-					addr, flavorPersistent, connections, duration)
-				printLineTick(cmd.OutOrStdout(), stop, done)
-				if err := connectPersistent(addr); err != nil {
-					return err
-				}
-			case flavorEphemeral:
-				cmd.Printf("Trying to connect to %q with %q connections (rate: %d, duration: %s)\n",
-					addr, flavorEphemeral, connectRate, duration)
-				printLineTick(cmd.OutOrStdout(), stop, done)
-				if err := connectEphemeral(addr); err != nil {
-					return err
-				}
-			}
-		case "udp":
-			printLineTick(cmd.OutOrStdout(), stop, done)
-			if err := connectUDP(addr); err != nil {
-				return err
-			}
-		}
-		stop <- struct{}{}
-		<-done // wait for completing goroutine.
-		return nil
-	},
+	RunE: runConnect,
 }
 
 func init() {
@@ -119,6 +84,43 @@ func init() {
 	connectCmd.Flags().Int32VarP(&connectRate, "rate", "r", 100,
 		fmt.Sprintf("New connections throughput (/s) (only for '%s')", flavorEphemeral))
 	connectCmd.Flags().DurationVarP(&duration, "duration", "d", 10*time.Second, "Measurement period")
+}
+
+func runConnect(cmd *cobra.Command, args []string) error {
+	addr := cmd.Flags().Arg(0)
+
+	stop := make(chan struct{})
+	defer close(stop)
+	done := make(chan struct{})
+	defer close(done)
+
+	switch protocol {
+	case "tcp":
+		switch connectFlavor {
+		case flavorPersistent:
+			cmd.Printf("Trying to connect to %q with %q connections (connections: %d, duration: %s)...\n",
+				addr, flavorPersistent, connections, duration)
+			printLineTick(cmd.OutOrStdout(), stop, done)
+			if err := connectPersistent(addr); err != nil {
+				return err
+			}
+		case flavorEphemeral:
+			cmd.Printf("Trying to connect to %q with %q connections (rate: %d, duration: %s)\n",
+				addr, flavorEphemeral, connectRate, duration)
+			printLineTick(cmd.OutOrStdout(), stop, done)
+			if err := connectEphemeral(addr); err != nil {
+				return err
+			}
+		}
+	case "udp":
+		printLineTick(cmd.OutOrStdout(), stop, done)
+		if err := connectUDP(addr); err != nil {
+			return err
+		}
+	}
+	stop <- struct{}{}
+	<-done // wait for completing goroutine.
+	return nil
 }
 
 func toMilliseconds(n int64) int64 {

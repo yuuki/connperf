@@ -28,6 +28,7 @@ import (
 
 	"github.com/rcrowley/go-metrics"
 	"github.com/spf13/cobra"
+	"golang.org/x/sync/errgroup"
 	"golang.org/x/time/rate"
 )
 
@@ -72,10 +73,12 @@ var connectCmd = &cobra.Command{
 
 		return nil
 	},
-	RunE: runConnect,
+	RunE: runConnectCmd,
 }
 
 func init() {
+	log.SetOutput(connectCmd.OutOrStderr())
+
 	rootCmd.AddCommand(connectCmd)
 
 	connectCmd.Flags().StringVarP(&protocol, "proto", "p", "tcp", "protocol (tcp or udp)")
@@ -91,9 +94,18 @@ func init() {
 	connectCmd.Flags().DurationVarP(&duration, "duration", "d", 10*time.Second, "Measurement period")
 }
 
-func runConnect(cmd *cobra.Command, args []string) error {
-	addr := cmd.Flags().Arg(0)
+func runConnectCmd(cmd *cobra.Command, args []string) error {
+	var eg errgroup.Group
+	for _, addr := range args {
+		addr := addr
+		eg.Go(func() error {
+			return runConnect(cmd, addr)
+		})
+	}
+	return eg.Wait()
+}
 
+func runConnect(cmd *cobra.Command, addr string) error {
 	stop := make(chan struct{})
 	defer close(stop)
 	done := make(chan struct{})
@@ -123,6 +135,7 @@ func runConnect(cmd *cobra.Command, args []string) error {
 			return err
 		}
 	}
+
 	stop <- struct{}{}
 	<-done // wait for completing goroutine.
 	return nil

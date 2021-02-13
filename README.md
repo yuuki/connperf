@@ -1,6 +1,6 @@
 # connperf
 
-connperf is a measturement tool for TCP/UDP connections in Go.
+connperf is a load generator for measuring the performance of TCP/UDP connections in Go.
 
 ## Examples
 

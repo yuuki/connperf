@@ -32,14 +32,14 @@ import (
 )
 
 const (
-	connectTypePersistent = "persistent"
-	connectTypeEphemeral  = "ephemeral"
+	flavorPersistent = "persistent"
+	flavorEphemeral  = "ephemeral"
 )
 
 var (
 	protocol      string
 	intervalStats time.Duration
-	connectType   string
+	connectFlavor string
 	connections   int32
 	connectRate   int32
 	duration      time.Duration
@@ -52,11 +52,11 @@ var connectCmd = &cobra.Command{
 	Use:   "connect",
 	Short: "connect connects to a port where 'serve' listens",
 	Args: func(cmd *cobra.Command, args []string) error {
-		switch connectType {
-		case connectTypePersistent:
-		case connectTypeEphemeral:
+		switch connectFlavor {
+		case flavorPersistent:
+		case flavorEphemeral:
 		default:
-			return fmt.Errorf("undefined connect mode %q", connectType)
+			return fmt.Errorf("unexpected connect flavor %q", connectFlavor)
 		}
 
 		switch protocol {
@@ -77,17 +77,17 @@ var connectCmd = &cobra.Command{
 
 		switch protocol {
 		case "tcp":
-			switch connectType {
-			case connectTypePersistent:
+			switch connectFlavor {
+			case flavorPersistent:
 				cmd.Printf("Trying to connect to %q with %q connections (connections: %d, duration: %s)...\n",
-					addr, connectTypePersistent, connections, duration)
+					addr, flavorPersistent, connections, duration)
 				printLineTick(cmd.OutOrStdout(), stop, done)
 				if err := connectPersistent(addr); err != nil {
 					return err
 				}
-			case connectTypeEphemeral:
+			case flavorEphemeral:
 				cmd.Printf("Trying to connect to %q with %q connections (rate: %d, duration: %s)\n",
-					addr, connectTypeEphemeral, connectRate, duration)
+					addr, flavorEphemeral, connectRate, duration)
 				printLineTick(cmd.OutOrStdout(), stop, done)
 				if err := connectEphemeral(addr); err != nil {
 					return err
@@ -111,13 +111,13 @@ func init() {
 	connectCmd.Flags().StringVarP(&protocol, "proto", "p", "tcp", "protocol (tcp or udp)")
 	i := connectCmd.Flags().IntP("interval", "i", 5, "interval for printing stats")
 	intervalStats = time.Duration(*i) * time.Second
-	connectCmd.Flags().StringVar(&connectType, "type", connectTypePersistent,
-		fmt.Sprintf("connect behavior type '%s' or '%s'", connectTypePersistent, connectTypeEphemeral),
+	connectCmd.Flags().StringVar{(&connectFlavor, "flavor", "f", flavorPersistent,
+		fmt.Sprintf("connect behavior type '%s' or '%s'", flavorPersistent, flavorEphemeral),
 	)
 	connectCmd.Flags().Int32VarP(&connections, "connections", "c", 10,
-		fmt.Sprintf("Number of connections to keep (only for '%s')l", connectTypePersistent))
+		fmt.Sprintf("Number of connections to keep (only for '%s')l", flavorPersistent))
 	connectCmd.Flags().Int32VarP(&connectRate, "rate", "r", 100,
-		fmt.Sprintf("New connections throughput (/s) (only for '%s')", connectTypeEphemeral))
+		fmt.Sprintf("New connections throughput (/s) (only for '%s')", flavorEphemeral))
 	connectCmd.Flags().DurationVarP(&duration, "duration", "d", 10*time.Second, "Measurement period")
 }
 

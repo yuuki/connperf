@@ -15,11 +15,11 @@ $ connperf serve -l 127.0.0.1:9100
 Run as a client to put a load on the server.
 
 ```shell
-$ connperf connect --type ephemeral --rate 1000 --duration 15s 127.0.0.1:9100
+$ connperf connect --flavor ephemeral --rate 1000 --duration 15s 127.0.0.1:9100
 ```
 
 ```shell
-$ connperf connect --type persistent --connections 1000 --duration 15s 127.0.0.1:9100
+$ connperf connect --flavor persistent --connections 1000 --duration 15s 127.0.0.1:9100
 ```
 
 Run as a UDP client.
@@ -31,7 +31,7 @@ $ connperf connect --proto udp --rate 1000 --duration 15s 127.0.0.1:9100
 ### Reports
 
 ```shell
-$ connperf connect --proto tcp --type ephemeral --rate 1000 --duration 30s 127.0.0.1:9100
+$ connperf connect --proto tcp --flavor ephemeral --rate 1000 --duration 30s 127.0.0.1:9100
 CNT        LAT_MAX(µs)     LAT_MIN(µs)     LAT_MEAN(µs)    LAT_90p(µs)     LAT_95p(µs)     LAT_99p(µs)     RATE(/s)
 5000       1931            257             396             484             510             607             1000.00
 4998       2756            270             416             493             533             805             999.40

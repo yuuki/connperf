@@ -99,7 +99,14 @@ func runConnectCmd(cmd *cobra.Command, args []string) error {
 	for _, addr := range args {
 		addr := addr
 		eg.Go(func() error {
-			return runConnect(cmd, addr)
+			stop := make(chan struct{})
+			defer close(stop)
+			runStatLinePrinter(cmd.OutOrStdout(), addr, stop)
+			if err := runConnect(cmd, addr); err != nil {
+				return err
+			}
+			stop <- struct{}{}
+			return nil
 		})
 	}
 	if err := eg.Wait(); err != nil {
@@ -117,35 +124,28 @@ func runConnectCmd(cmd *cobra.Command, args []string) error {
 }
 
 func runConnect(cmd *cobra.Command, addr string) error {
-	stop := make(chan struct{})
-	defer close(stop)
-
 	switch protocol {
 	case "tcp":
 		switch connectFlavor {
 		case flavorPersistent:
 			cmd.Printf("Trying to connect to %q with %q connections (connections: %d, duration: %s)...\n",
 				addr, flavorPersistent, connections, duration)
-			runStatLinePrinter(cmd.OutOrStdout(), addr, stop)
 			if err := connectPersistent(addr); err != nil {
 				return err
 			}
 		case flavorEphemeral:
 			cmd.Printf("Trying to connect to %q with %q connections (rate: %d, duration: %s)\n",
 				addr, flavorEphemeral, connectRate, duration)
-			runStatLinePrinter(cmd.OutOrStdout(), addr, stop)
 			if err := connectEphemeral(addr); err != nil {
 				return err
 			}
 		}
 	case "udp":
-		runStatLinePrinter(cmd.OutOrStdout(), addr, stop)
 		if err := connectUDP(addr); err != nil {
 			return err
 		}
 	}
 
-	stop <- struct{}{}
 	return nil
 }
 

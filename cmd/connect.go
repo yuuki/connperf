@@ -119,8 +119,6 @@ func runConnectCmd(cmd *cobra.Command, args []string) error {
 func runConnect(cmd *cobra.Command, addr string) error {
 	stop := make(chan struct{})
 	defer close(stop)
-	done := make(chan struct{})
-	defer close(done)
 
 	switch protocol {
 	case "tcp":
@@ -128,27 +126,26 @@ func runConnect(cmd *cobra.Command, addr string) error {
 		case flavorPersistent:
 			cmd.Printf("Trying to connect to %q with %q connections (connections: %d, duration: %s)...\n",
 				addr, flavorPersistent, connections, duration)
-			printLineTick(cmd.OutOrStdout(), addr, stop, done)
+			printLineTick(cmd.OutOrStdout(), addr, stop)
 			if err := connectPersistent(addr); err != nil {
 				return err
 			}
 		case flavorEphemeral:
 			cmd.Printf("Trying to connect to %q with %q connections (rate: %d, duration: %s)\n",
 				addr, flavorEphemeral, connectRate, duration)
-			printLineTick(cmd.OutOrStdout(), addr, stop, done)
+			printLineTick(cmd.OutOrStdout(), addr, stop)
 			if err := connectEphemeral(addr); err != nil {
 				return err
 			}
 		}
 	case "udp":
-		printLineTick(cmd.OutOrStdout(), addr, stop, done)
+		printLineTick(cmd.OutOrStdout(), addr, stop)
 		if err := connectUDP(addr); err != nil {
 			return err
 		}
 	}
 
 	stop <- struct{}{}
-	<-done // wait for completing goroutine.
 	return nil
 }
 
@@ -179,12 +176,10 @@ func printLine(w io.Writer, addr string, stat metrics.Timer) {
 	)
 }
 
-func printLineTick(w io.Writer, addr string, stop chan struct{}, done chan struct{}) {
+func printLineTick(w io.Writer, addr string, stop chan struct{}) {
 	go func() {
-		defer func() { done <- struct{}{} }()
 		t := time.NewTicker(intervalStats)
 		defer t.Stop()
-		ts := metrics.GetOrRegisterTimer("total.latency."+addr, nil)
 		for {
 			select {
 			case <-t.C:
@@ -192,7 +187,6 @@ func printLineTick(w io.Writer, addr string, stop chan struct{}, done chan struc
 				printLine(w, addr, is)
 				metrics.Unregister("instant.latency." + addr)
 			case <-stop:
-				ts.Stop()
 				return
 			}
 		}

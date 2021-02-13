@@ -65,6 +65,11 @@ var connectCmd = &cobra.Command{
 		default:
 			return fmt.Errorf("unexpected protocol %q", protocol)
 		}
+
+		if len(args) < 1 {
+			return fmt.Errorf("required addresses")
+		}
+
 		return nil
 	},
 	RunE: runConnect,

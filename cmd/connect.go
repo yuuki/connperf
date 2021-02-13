@@ -93,7 +93,7 @@ func init() {
 }
 
 func runConnectCmd(cmd *cobra.Command, args []string) error {
-	printHeader(cmd.OutOrStdout())
+	printStatHeader(cmd.OutOrStdout())
 
 	var eg errgroup.Group
 	for _, addr := range args {
@@ -110,7 +110,7 @@ func runConnectCmd(cmd *cobra.Command, args []string) error {
 		"--- A result during total execution time ---")
 	for _, addr := range args {
 		ts := metrics.GetOrRegisterTimer("total.latency."+addr, nil)
-		printLine(cmd.OutOrStdout(), addr, ts)
+		printStatLine(cmd.OutOrStdout(), addr, ts)
 	}
 
 	return nil
@@ -126,20 +126,20 @@ func runConnect(cmd *cobra.Command, addr string) error {
 		case flavorPersistent:
 			cmd.Printf("Trying to connect to %q with %q connections (connections: %d, duration: %s)...\n",
 				addr, flavorPersistent, connections, duration)
-			printLineTick(cmd.OutOrStdout(), addr, stop)
+			runStatLinePrinter(cmd.OutOrStdout(), addr, stop)
 			if err := connectPersistent(addr); err != nil {
 				return err
 			}
 		case flavorEphemeral:
 			cmd.Printf("Trying to connect to %q with %q connections (rate: %d, duration: %s)\n",
 				addr, flavorEphemeral, connectRate, duration)
-			printLineTick(cmd.OutOrStdout(), addr, stop)
+			runStatLinePrinter(cmd.OutOrStdout(), addr, stop)
 			if err := connectEphemeral(addr); err != nil {
 				return err
 			}
 		}
 	case "udp":
-		printLineTick(cmd.OutOrStdout(), addr, stop)
+		runStatLinePrinter(cmd.OutOrStdout(), addr, stop)
 		if err := connectUDP(addr); err != nil {
 			return err
 		}
@@ -156,13 +156,13 @@ func toMillisecondsf(n float64) int64 {
 	return time.Duration(n).Microseconds()
 }
 
-func printHeader(w io.Writer) {
+func printStatHeader(w io.Writer) {
 	fmt.Printf("%-20s %-10s %-15s %-15s %-15s %-15s %-15s %-15s %-10s\n",
 		"PEER", "CNT", "LAT_MAX(µs)", "LAT_MIN(µs)", "LAT_MEAN(µs)",
 		"LAT_90p(µs)", "LAT_95p(µs)", "LAT_99p(µs)", "RATE(/s)")
 }
 
-func printLine(w io.Writer, addr string, stat metrics.Timer) {
+func printStatLine(w io.Writer, addr string, stat metrics.Timer) {
 	fmt.Fprintf(w, "%-20s %-10d %-15d %-15d %-15d %-15d %-15d %-15d %-10.2f\n",
 		addr,
 		stat.Count(),
@@ -176,16 +176,16 @@ func printLine(w io.Writer, addr string, stat metrics.Timer) {
 	)
 }
 
-func printLineTick(w io.Writer, addr string, stop chan struct{}) {
+func runStatLinePrinter(w io.Writer, addr string, stop chan struct{}) {
 	go func() {
 		t := time.NewTicker(intervalStats)
 		defer t.Stop()
 		for {
 			select {
 			case <-t.C:
-				is := metrics.GetOrRegisterTimer("instant.latency."+addr, nil)
-				printLine(w, addr, is)
-				metrics.Unregister("instant.latency." + addr)
+				is := metrics.GetOrRegisterTimer("tick.latency."+addr, nil)
+				printStatLine(w, addr, is)
+				metrics.Unregister("tick.latency." + addr)
 			case <-stop:
 				return
 			}
@@ -195,7 +195,7 @@ func printLineTick(w io.Writer, addr string, stop chan struct{}) {
 
 func meastureTime(addr string, f func()) {
 	ts := metrics.GetOrRegisterTimer("total.latency."+addr, nil)
-	is := metrics.GetOrRegisterTimer("instant.latency."+addr, nil)
+	is := metrics.GetOrRegisterTimer("tick.latency."+addr, nil)
 	ts.Time(func() { is.Time(f) })
 }
 
@@ -203,7 +203,7 @@ func updateStat(addr string, n time.Duration) {
 	ts := metrics.GetOrRegisterTimer("total.latency."+addr, nil)
 	ts.Update(n)
 
-	is := metrics.GetOrRegisterTimer("instant.latency", nil)
+	is := metrics.GetOrRegisterTimer("tick.latency", nil)
 	is.Update(n)
 }
 

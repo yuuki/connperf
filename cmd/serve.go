@@ -28,6 +28,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"github.com/yuuki/connperf/limit"
 )
 
 var (
@@ -39,6 +40,10 @@ var serveCmd = &cobra.Command{
 	Use:   "serve",
 	Short: "serve accepts connections",
 	RunE: func(cmd *cobra.Command, args []string) error {
+		if err := limit.SetRLimitNoFile(); err != nil {
+			return err
+		}
+
 		cmd.Printf("Listening at %q ...\n", listenAddr)
 		go func() {
 			if err := serveTCP(); err != nil {

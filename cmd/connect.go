@@ -28,6 +28,7 @@ import (
 
 	"github.com/rcrowley/go-metrics"
 	"github.com/spf13/cobra"
+	"github.com/yuuki/connperf/limit"
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/time/rate"
 )
@@ -95,6 +96,10 @@ func init() {
 }
 
 func runConnectCmd(cmd *cobra.Command, args []string) error {
+	if err := limit.SetRLimitNoFile(); err != nil {
+		return err
+	}
+
 	printStatHeader(cmd.OutOrStdout())
 
 	var eg errgroup.Group

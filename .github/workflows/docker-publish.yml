@@ -13,7 +13,7 @@ on:
     - '**.md'
 
 env:
-  DOCKER_BASE_NAME: docker.pkg.github.com/${{ github.repository }}/connperf
+  DOCKER_BASE_NAME: ghcr.io/${{ github.repository_owner }}/${{ github.repository }}
 
 jobs:
   push_to_registry:
@@ -31,10 +31,9 @@ jobs:
       - name: Login
         if: github.event_name != 'pull_request'
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          DOCKER_HUB_TOKEN: ${{ secrets.DOCKER_HUB_TOKEN }}
+          CR_PAT: ${{ secrets.CR_PAT }}
         run: |
-          echo "${GITHUB_TOKEN}" | docker login docker.pkg.github.com -u yuuki --password-stdin
+          echo "${CR_PAT}" | docker login ghcr.io -u yuuki --password-stdin
 
       - name: Push to GitHub Packages
         if: github.event_name != 'pull_request'

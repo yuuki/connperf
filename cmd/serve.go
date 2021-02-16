@@ -90,14 +90,11 @@ func serveTCP() error {
 				}
 				log.Fatalf("unrecoverable error when accepting TCP connections: %s", err)
 			}
-			log.Fatalf("unexpected error when accepting TCP Graphite connections: %s", err)
+			log.Fatalf("unexpected error when accepting TCP connections: %s", err)
 		}
 		go func() {
-			if err := echoStream(conn); err != nil {
+			if err := handleConnection(conn); err != nil {
 				log.Println(err)
-				if err := conn.Close(); err != nil {
-					log.Printf("could not close: %s\n", err)
-				}
 			}
 		}()
 	}
@@ -105,9 +102,10 @@ func serveTCP() error {
 	return nil
 }
 
-func echoStream(conn net.Conn) error {
-	r := bufio.NewReader(conn)
-	msg, err := ioutil.ReadAll(r)
+func handleConnection(conn net.Conn) error {
+	defer conn.Close()
+
+	msg, err := ioutil.ReadAll(bufio.NewReader(conn))
 	if err != nil {
 		return fmt.Errorf("could not read: %s", err)
 	}

@@ -92,7 +92,7 @@ func init() {
 	connectCmd.Flags().Int32VarP(&connectRate, "rate", "r", 100,
 		fmt.Sprintf("New connections throughput (/s) (only for '%s')", flavorEphemeral))
 	connectCmd.Flags().DurationVarP(&duration, "duration", "d", 10*time.Second, "measurement period")
-	connectCmd.Flags().BoolVar(&showOnlyResults, "show-only-results", true, "print only results of measurement stats")
+	connectCmd.Flags().BoolVar(&showOnlyResults, "show-only-results", false, "print only results of measurement stats")
 }
 
 func runConnectCmd(cmd *cobra.Command, args []string) error {

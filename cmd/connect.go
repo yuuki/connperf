@@ -276,12 +276,15 @@ func connectEphemeral(addrport string) error {
 				conn, err := net.Dial("tcp", addrport)
 				if err != nil {
 					log.Printf("could not dial %q: %s", addrport, err)
+					return
 				}
 				if _, err := conn.Write([]byte("Hello")); err != nil {
 					log.Printf("could not write: %s\n", err)
+					return
 				}
 				if err := conn.Close(); err != nil {
 					log.Printf("could not close: %s\n", err)
+					return
 				}
 			})
 		}()

@@ -17,13 +17,13 @@ package cmd
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"net"
 	"os"
 	"os/signal"
-	"strings"
 	"sync"
 	"time"
 
@@ -85,7 +85,7 @@ func serveTCP() error {
 					time.Sleep(time.Second)
 					continue
 				}
-				if strings.Contains(err.Error(), "use of closed network connection") {
+				if errors.Is(err, net.ErrClosed) {
 					break
 				}
 				log.Fatalf("unrecoverable error when accepting TCP connections: %s", err)

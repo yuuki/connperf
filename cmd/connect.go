@@ -22,6 +22,8 @@ import (
 	"io"
 	"log"
 	"net"
+	"os"
+	"os/signal"
 	"strings"
 	"sync"
 	"time"
@@ -104,36 +106,48 @@ func printReport(w io.Writer, addrs []string) {
 }
 
 func runConnectCmd(cmd *cobra.Command, args []string) error {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, os.Kill)
+	defer stop()
+
 	if err := limit.SetRLimitNoFile(); err != nil {
 		return err
 	}
 
 	printStatHeader(cmd.OutOrStdout())
 
-	var eg errgroup.Group
-	for _, addr := range args {
-		addr := addr
-		eg.Go(func() error {
-			if showOnlyResults {
-				if err := connectAddr(addr); err != nil {
-					return err
+	errChan := make(chan error)
+	go func() {
+		var eg errgroup.Group
+		for _, addr := range args {
+			addr := addr
+			eg.Go(func() error {
+				if showOnlyResults {
+					if err := connectAddr(addr); err != nil {
+						return err
+					}
+				} else {
+					stopCh := make(chan struct{})
+					defer close(stopCh)
+					runStatLinePrinter(cmd.OutOrStdout(), addr, stopCh)
+					if err := connectAddr(addr); err != nil {
+						return err
+					}
+					stopCh <- struct{}{}
 				}
-			} else {
-				stop := make(chan struct{})
-				defer close(stop)
-				runStatLinePrinter(cmd.OutOrStdout(), addr, stop)
-				if err := connectAddr(addr); err != nil {
-					return err
-				}
-				stop <- struct{}{}
-			}
-			return nil
-		})
-	}
-	if err := eg.Wait(); err != nil {
-		return err
-	}
+				return nil
+			})
+		}
+		errChan <- eg.Wait()
+	}()
 
+	select {
+	case err := <-errChan:
+		if err != nil {
+			return err
+		}
+	case <-ctx.Done():
+		stop()
+	}
 	printReport(cmd.OutOrStdout(), args)
 
 	return nil

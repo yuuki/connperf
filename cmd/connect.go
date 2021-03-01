@@ -229,7 +229,7 @@ func updateStat(addr string, n time.Duration) {
 	ts := metrics.GetOrRegisterTimer("total.latency."+addr, nil)
 	ts.Update(n)
 
-	is := metrics.GetOrRegisterTimer("tick.latency", nil)
+	is := metrics.GetOrRegisterTimer("tick.latency."+addr, nil)
 	is.Update(n)
 }
 

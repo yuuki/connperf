@@ -95,6 +95,14 @@ func init() {
 	connectCmd.Flags().BoolVar(&showOnlyResults, "show-only-results", false, "print only results of measurement stats")
 }
 
+func printReport(w io.Writer, addrs []string) {
+	fmt.Fprintln(w, "--- A result during total execution time ---")
+	for _, addr := range addrs {
+		ts := metrics.GetOrRegisterTimer("total.latency."+addr, nil)
+		printStatLine(w, addr, ts)
+	}
+}
+
 func runConnectCmd(cmd *cobra.Command, args []string) error {
 	if err := limit.SetRLimitNoFile(); err != nil {
 		return err
@@ -126,12 +134,7 @@ func runConnectCmd(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	fmt.Fprintln(cmd.OutOrStdout(),
-		"--- A result during total execution time ---")
-	for _, addr := range args {
-		ts := metrics.GetOrRegisterTimer("total.latency."+addr, nil)
-		printStatLine(cmd.OutOrStdout(), addr, ts)
-	}
+	printReport(cmd.OutOrStdout(), args)
 
 	return nil
 }

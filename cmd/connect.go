@@ -24,7 +24,6 @@ import (
 	"net"
 	"os"
 	"os/signal"
-	"strings"
 	"sync"
 	"time"
 
@@ -281,19 +280,22 @@ func connectEphemeral(addrport string) error {
 	tr := rate.Every(time.Second / time.Duration(connectRate))
 	limiter := rate.NewLimiter(tr, int(float64(connectRate)*15/100)) // allow 15% burst
 
-	eg := &errgroup.Group{}
+	var wg sync.WaitGroup
+	cause := make(chan error, 1)
 	var i int32
 	for i = 0; i < connTotal; i++ {
 		if err := limiter.Wait(ctx); err != nil {
-			if !errors.Is(err, context.DeadlineExceeded) &&
-				!strings.Contains(err.Error(), "would exceed context deadline") {
-				log.Printf("rate limiter failed wait: %s\n", err)
+			if errors.Is(err, context.Canceled) ||
+				errors.Is(err, context.DeadlineExceeded) {
+				break
 			}
 			continue
 		}
-		eg.Go(func() error {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
 			// start timer of measuring latency
-			return meastureTime(addrport, func() error {
+			err := meastureTime(addrport, func() error {
 				conn, err := net.Dial("tcp", addrport)
 				if err != nil {
 					return xerrors.Errorf("could not dial %q: %w", addrport, err)
@@ -306,9 +308,17 @@ func connectEphemeral(addrport string) error {
 				}
 				return nil
 			})
-		})
+			if err != nil {
+				cause <- err
+				cancel()
+			}
+		}()
 	}
-	return eg.Wait()
+	go func() {
+		wg.Wait()
+		close(cause)
+	}()
+	return <-cause
 }
 
 func connectUDP(addrport string) error {
@@ -323,19 +333,22 @@ func connectUDP(addrport string) error {
 		New: func() interface{} { return make([]byte, UDPPacketSize) },
 	}
 
-	eg := &errgroup.Group{}
+	var wg sync.WaitGroup
+	cause := make(chan error, 1)
 	var i int32
 	for i = 0; i < connTotal; i++ {
 		if err := limiter.Wait(ctx); err != nil {
-			if !errors.Is(err, context.DeadlineExceeded) &&
-				!strings.Contains(err.Error(), "would exceed context deadline") {
-				log.Println(err)
+			if errors.Is(err, context.Canceled) ||
+				errors.Is(err, context.DeadlineExceeded) {
+				break
 			}
 			continue
 		}
-		eg.Go(func() error {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
 			// start timer of measuring latency
-			return meastureTime(addrport, func() error {
+			err := meastureTime(addrport, func() error {
 				// create socket
 				conn, err := net.Dial("udp4", addrport)
 				if err != nil {
@@ -354,7 +367,15 @@ func connectUDP(addrport string) error {
 				}
 				return nil
 			})
-		})
+			if err != nil {
+				cause <- err
+				cancel()
+			}
+		}()
 	}
-	return eg.Wait()
+	go func() {
+		wg.Wait()
+		close(cause)
+	}()
+	return <-cause
 }

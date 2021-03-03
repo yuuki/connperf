@@ -198,7 +198,7 @@ func printStatLine(w io.Writer, addr string, stat metrics.Timer) {
 		toMicrosecondsf(stat.Percentile(0.9)),
 		toMicrosecondsf(stat.Percentile(0.95)),
 		toMicrosecondsf(stat.Percentile(0.99)),
-		stat.Rate1(),
+		stat.RateMean(),
 	)
 }
 

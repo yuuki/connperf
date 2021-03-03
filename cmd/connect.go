@@ -75,7 +75,11 @@ var connectCmd = &cobra.Command{
 
 		return nil
 	},
-	RunE: runConnectCmd,
+	Run: func(cmd *cobra.Command, args []string) {
+		if err := runConnectCmd(cmd, args); err != nil {
+			cmd.PrintErrf("%v\n", err)
+		}
+	},
 }
 
 func init() {

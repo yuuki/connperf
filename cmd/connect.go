@@ -272,7 +272,7 @@ func connectEphemeral(addrport string) error {
 
 	connTotal := connectRate * int32(duration.Seconds())
 	tr := rate.Every(time.Second / time.Duration(connectRate))
-	limiter := rate.NewLimiter(tr, 1)
+	limiter := rate.NewLimiter(tr, int(float64(connectRate)*15/100)) // allow 15% burst
 
 	wg := &sync.WaitGroup{}
 	var i int32
@@ -317,7 +317,7 @@ func connectUDP(addrport string) error {
 
 	connTotal := connectRate * int32(duration.Seconds())
 	tr := rate.Every(time.Second / time.Duration(connectRate))
-	limiter := rate.NewLimiter(tr, 1)
+	limiter := rate.NewLimiter(tr, int(float64(connectRate)*15/100)) // allow 15% burst
 
 	bufUDPPool := sync.Pool{
 		New: func() interface{} { return make([]byte, UDPPacketSize) },

@@ -33,6 +33,7 @@ import (
 	"github.com/yuuki/connperf/limit"
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/time/rate"
+	"golang.org/x/xerrors"
 )
 
 const (
@@ -219,10 +220,16 @@ func runStatLinePrinter(w io.Writer, addr string, stop chan struct{}) {
 	}()
 }
 
-func meastureTime(addr string, f func()) {
+func meastureTime(addr string, f func() error) error {
 	ts := metrics.GetOrRegisterTimer("total.latency."+addr, nil)
 	is := metrics.GetOrRegisterTimer("tick.latency."+addr, nil)
-	ts.Time(func() { is.Time(f) })
+	start := time.Now()
+	if err := f(); err != nil {
+		return err
+	}
+	ts.UpdateSince(start)
+	is.UpdateSince(start)
+	return nil
 }
 
 func updateStat(addr string, n time.Duration) {
@@ -274,7 +281,7 @@ func connectEphemeral(addrport string) error {
 	tr := rate.Every(time.Second / time.Duration(connectRate))
 	limiter := rate.NewLimiter(tr, int(float64(connectRate)*15/100)) // allow 15% burst
 
-	wg := &sync.WaitGroup{}
+	eg := &errgroup.Group{}
 	var i int32
 	for i = 0; i < connTotal; i++ {
 		if err := limiter.Wait(ctx); err != nil {
@@ -284,31 +291,24 @@ func connectEphemeral(addrport string) error {
 			}
 			continue
 		}
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-
+		eg.Go(func() error {
 			// start timer of measuring latency
-			meastureTime(addrport, func() {
+			return meastureTime(addrport, func() error {
 				conn, err := net.Dial("tcp", addrport)
 				if err != nil {
-					log.Printf("could not dial %q: %s", addrport, err)
-					return
+					return xerrors.Errorf("could not dial %q: %w", addrport, err)
 				}
 				if _, err := conn.Write([]byte("Hello")); err != nil {
-					log.Printf("could not write: %s\n", err)
-					return
+					return xerrors.Errorf("could not write %q: %w", addrport, err)
 				}
 				if err := conn.Close(); err != nil {
-					log.Printf("could not close: %s\n", err)
-					return
+					return xerrors.Errorf("could not close %q: %w", addrport, err)
 				}
+				return nil
 			})
-		}()
+		})
 	}
-	wg.Wait()
-
-	return nil
+	return eg.Wait()
 }
 
 func connectUDP(addrport string) error {
@@ -323,7 +323,7 @@ func connectUDP(addrport string) error {
 		New: func() interface{} { return make([]byte, UDPPacketSize) },
 	}
 
-	wg := &sync.WaitGroup{}
+	eg := &errgroup.Group{}
 	var i int32
 	for i = 0; i < connTotal; i++ {
 		if err := limiter.Wait(ctx); err != nil {
@@ -333,39 +333,28 @@ func connectUDP(addrport string) error {
 			}
 			continue
 		}
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-
+		eg.Go(func() error {
 			// start timer of measuring latency
-			meastureTime(addrport, func() {
+			return meastureTime(addrport, func() error {
 				// create socket
 				conn, err := net.Dial("udp4", addrport)
 				if err != nil {
-					log.Printf("could not dial %q: %s", addrport, err)
-					return
+					return xerrors.Errorf("could not dial %q: %w", addrport, err)
 				}
-				defer func() {
-					if err := conn.Close(); err != nil {
-						log.Printf("could not close: %s\n", err)
-					}
-				}()
+				defer conn.Close()
 
 				msg := bufUDPPool.Get().([]byte)
 				defer func() { bufUDPPool.Put(msg) }()
 
 				if _, err := conn.Write([]byte("Hello")); err != nil {
-					log.Printf("could not write: %s\n", err)
-					return
+					return xerrors.Errorf("could not write %q: %w", addrport, err)
 				}
 				if _, err := conn.Read(msg); err != nil {
-					log.Printf("could not read: %s\n", err)
-					return
+					return xerrors.Errorf("could not read %q: %w", addrport, err)
 				}
+				return nil
 			})
-		}()
+		})
 	}
-	wg.Wait()
-
-	return nil
+	return eg.Wait()
 }

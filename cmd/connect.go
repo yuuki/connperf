@@ -175,10 +175,10 @@ func connectAddr(addr string) error {
 	return nil
 }
 
-func toMilliseconds(n int64) int64 {
+func toMicroseconds(n int64) int64 {
 	return time.Duration(n).Microseconds()
 }
-func toMillisecondsf(n float64) int64 {
+func toMicrosecondsf(n float64) int64 {
 	return time.Duration(n).Microseconds()
 }
 
@@ -192,12 +192,12 @@ func printStatLine(w io.Writer, addr string, stat metrics.Timer) {
 	fmt.Fprintf(w, "%-20s %-10d %-15d %-15d %-15d %-15d %-15d %-15d %-10.2f\n",
 		addr,
 		stat.Count(),
-		toMilliseconds(stat.Max()),
-		toMilliseconds(stat.Min()),
-		toMillisecondsf(stat.Mean()),
-		toMillisecondsf(stat.Percentile(0.9)),
-		toMillisecondsf(stat.Percentile(0.95)),
-		toMillisecondsf(stat.Percentile(0.99)),
+		toMicroseconds(stat.Max()),
+		toMicroseconds(stat.Min()),
+		toMicrosecondsf(stat.Mean()),
+		toMicrosecondsf(stat.Percentile(0.9)),
+		toMicrosecondsf(stat.Percentile(0.95)),
+		toMicrosecondsf(stat.Percentile(0.99)),
 		stat.Rate1(),
 	)
 }

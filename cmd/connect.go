@@ -121,7 +121,7 @@ func runConnectCmd(cmd *cobra.Command, args []string) error {
 
 	errChan := make(chan error)
 	go func() {
-		var eg errgroup.Group
+		eg, ctx := errgroup.WithContext(ctx)
 		for _, addr := range args {
 			addr := addr
 			eg.Go(func() error {
@@ -130,13 +130,10 @@ func runConnectCmd(cmd *cobra.Command, args []string) error {
 						return err
 					}
 				} else {
-					stopCh := make(chan struct{})
-					defer close(stopCh)
-					runStatLinePrinter(cmd.OutOrStdout(), addr, stopCh)
+					runStatLinePrinter(ctx, cmd.OutOrStdout(), addr)
 					if err := connectAddr(addr); err != nil {
 						return err
 					}
-					stopCh <- struct{}{}
 				}
 				return nil
 			})
@@ -145,12 +142,12 @@ func runConnectCmd(cmd *cobra.Command, args []string) error {
 	}()
 
 	select {
+	case <-ctx.Done():
+		stop()
 	case err := <-errChan:
 		if err != nil {
 			return err
 		}
-	case <-ctx.Done():
-		stop()
 	}
 	printReport(cmd.OutOrStdout(), args)
 
@@ -206,18 +203,18 @@ func printStatLine(w io.Writer, addr string, stat metrics.Timer) {
 	)
 }
 
-func runStatLinePrinter(w io.Writer, addr string, stop chan struct{}) {
+func runStatLinePrinter(ctx context.Context, w io.Writer, addr string) {
 	go func() {
 		t := time.NewTicker(intervalStats)
 		defer t.Stop()
 		for {
 			select {
+			case <-ctx.Done():
+				return
 			case <-t.C:
 				is := metrics.GetOrRegisterTimer("tick.latency."+addr, nil)
 				printStatLine(w, addr, is)
 				metrics.Unregister("tick.latency." + addr)
-			case <-stop:
-				return
 			}
 		}
 	}()

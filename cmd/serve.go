@@ -110,7 +110,7 @@ func handleConnection(conn net.Conn) error {
 		return fmt.Errorf("could not read: %s", err)
 	}
 	if _, err := conn.Write(msg); err != nil {
-		return fmt.Errorf("could write %q", msg)
+		return fmt.Errorf("could not write %q", msg)
 	}
 	return nil
 }

@@ -94,7 +94,7 @@ func init() {
 		fmt.Sprintf("connect behavior type '%s' or '%s'", flavorPersistent, flavorEphemeral),
 	)
 	connectCmd.Flags().Int32VarP(&connections, "connections", "c", 10,
-		fmt.Sprintf("Number of connections to keep (only for '%s')l", flavorPersistent))
+		fmt.Sprintf("Number of concurrent connections to keep (only for '%s')l", flavorPersistent))
 	connectCmd.Flags().Int32VarP(&connectRate, "rate", "r", 100,
 		fmt.Sprintf("New connections throughput (/s) (only for '%s')", flavorEphemeral))
 	connectCmd.Flags().DurationVarP(&duration, "duration", "d", 10*time.Second, "measurement period")

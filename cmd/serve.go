@@ -16,10 +16,8 @@ limitations under the License.
 package cmd
 
 import (
-	"bufio"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net"
 	"os"
@@ -65,6 +63,10 @@ var serveCmd = &cobra.Command{
 	},
 }
 
+var serveMsgBuf = sync.Pool{
+	New: func() interface{} { return make([]byte, 4*1024) },
+}
+
 func init() {
 	rootCmd.AddCommand(serveCmd)
 	serveCmd.Flags().StringVarP(&listenAddr, "listenAddr", "l", "0.0.0.0:9100", "listening address")
@@ -105,12 +107,34 @@ func serveTCP() error {
 func handleConnection(conn net.Conn) error {
 	defer conn.Close()
 
-	msg, err := ioutil.ReadAll(bufio.NewReader(conn))
-	if err != nil {
-		return fmt.Errorf("could not read: %s", err)
-	}
-	if _, err := conn.Write(msg); err != nil {
-		return fmt.Errorf("could not write %q", msg)
+	buf := serveMsgBuf.Get().([]byte)
+	defer func() { serveMsgBuf.Put(buf) }()
+
+	for {
+		n, err := conn.Read(buf)
+		if err != nil {
+			if ne, ok := err.(net.Error); ok {
+				if ne.Temporary() {
+					continue
+				}
+			}
+			if errors.Is(err, net.ErrClosed) {
+				break
+			}
+			continue
+		}
+	REWRITE:
+		if _, err := conn.Write(buf[:n]); err != nil {
+			if ne, ok := err.(net.Error); ok {
+				if ne.Temporary() {
+					goto REWRITE
+				}
+			}
+			if errors.Is(err, net.ErrClosed) {
+				break
+			}
+			continue
+		}
 	}
 	return nil
 }

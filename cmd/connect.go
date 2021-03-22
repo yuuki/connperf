@@ -241,19 +241,20 @@ func updateStat(addr string, n time.Duration) {
 }
 
 func connectPersistent(addrport string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), duration)
+	defer cancel()
+
 	bufTCPPool := sync.Pool{
 		New: func() interface{} { return make([]byte, UDPPacketSize) },
 	}
 
 	wg := &sync.WaitGroup{}
+	cause := make(chan error, 1)
 	var i int32
 	for i = 0; i < connections; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-
-			ctx, cancel := context.WithTimeout(context.Background(), duration)
-			defer cancel()
 
 			conn, err := net.Dial("tcp", addrport)
 			if err != nil {
@@ -289,14 +290,17 @@ func connectPersistent(addrport string) error {
 					return nil
 				})
 				if err != nil {
-					log.Println("%v", err)
-					return
+					cause <- err
+					cancel()
 				}
 			}
 		}()
 	}
-	wg.Wait()
-	return nil
+	go func() {
+		wg.Wait()
+		close(cause)
+	}()
+	return <-cause
 }
 
 func connectEphemeral(addrport string) error {

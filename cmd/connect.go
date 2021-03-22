@@ -126,12 +126,12 @@ func runConnectCmd(cmd *cobra.Command, args []string) error {
 			addr := addr
 			eg.Go(func() error {
 				if showOnlyResults {
-					if err := connectAddr(addr); err != nil {
+					if err := connectAddr(ctx, addr); err != nil {
 						return err
 					}
 				} else {
 					runStatLinePrinter(ctx, cmd.OutOrStdout(), addr)
-					if err := connectAddr(addr); err != nil {
+					if err := connectAddr(ctx, addr); err != nil {
 						return err
 					}
 				}
@@ -154,21 +154,21 @@ func runConnectCmd(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func connectAddr(addr string) error {
+func connectAddr(ctx context.Context, addr string) error {
 	switch protocol {
 	case "tcp":
 		switch connectFlavor {
 		case flavorPersistent:
-			if err := connectPersistent(addr); err != nil {
+			if err := connectPersistent(ctx, addr); err != nil {
 				return err
 			}
 		case flavorEphemeral:
-			if err := connectEphemeral(addr); err != nil {
+			if err := connectEphemeral(ctx, addr); err != nil {
 				return err
 			}
 		}
 	case "udp":
-		if err := connectUDP(addr); err != nil {
+		if err := connectUDP(ctx, addr); err != nil {
 			return err
 		}
 	}
@@ -240,8 +240,8 @@ func updateStat(addr string, n time.Duration) {
 	is.Update(n)
 }
 
-func connectPersistent(addrport string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), duration)
+func connectPersistent(ctx context.Context, addrport string) error {
+	ctx, cancel := context.WithTimeout(ctx, duration)
 	defer cancel()
 
 	bufTCPPool := sync.Pool{
@@ -303,8 +303,8 @@ func connectPersistent(addrport string) error {
 	return <-cause
 }
 
-func connectEphemeral(addrport string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), duration)
+func connectEphemeral(ctx context.Context, addrport string) error {
+	ctx, cancel := context.WithTimeout(ctx, duration)
 	defer cancel()
 
 	connTotal := connectRate * int32(duration.Seconds())
@@ -352,8 +352,8 @@ func connectEphemeral(addrport string) error {
 	return <-cause
 }
 
-func connectUDP(addrport string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), duration)
+func connectUDP(ctx context.Context, addrport string) error {
+	ctx, cancel := context.WithTimeout(ctx, duration)
 	defer cancel()
 
 	connTotal := connectRate * int32(duration.Seconds())

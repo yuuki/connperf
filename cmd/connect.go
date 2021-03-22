@@ -260,6 +260,7 @@ func connectPersistent(addrport string) error {
 				log.Printf("could not dial %q: %s", addrport, err)
 				return
 			}
+			defer conn.Close()
 
 			msgsTotal := connectRate * int32(duration.Seconds())
 			tr := rate.Every(time.Second / time.Duration(connectRate))
@@ -291,11 +292,6 @@ func connectPersistent(addrport string) error {
 					log.Println("%v", err)
 					return
 				}
-			}
-
-			if err := conn.Close(); err != nil {
-				log.Printf("could not close: %s\n", err)
-				return
 			}
 		}()
 	}

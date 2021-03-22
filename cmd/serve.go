@@ -118,10 +118,7 @@ func handleConnection(conn net.Conn) error {
 					continue
 				}
 			}
-			if errors.Is(err, net.ErrClosed) {
-				break
-			}
-			continue
+			break
 		}
 	REWRITE:
 		if _, err := conn.Write(buf[:n]); err != nil {
@@ -130,10 +127,7 @@ func handleConnection(conn net.Conn) error {
 					goto REWRITE
 				}
 			}
-			if errors.Is(err, net.ErrClosed) {
-				break
-			}
-			continue
+			break
 		}
 	}
 	return nil

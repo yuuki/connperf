@@ -263,7 +263,7 @@ func connectPersistent(addrport string) error {
 
 			msgsTotal := connectRate * int32(duration.Seconds())
 			tr := rate.Every(time.Second / time.Duration(connectRate))
-			limiter := rate.NewLimiter(tr, int(float64(connectRate)*15/100)) // allow 15% burst
+			limiter := rate.NewLimiter(tr, int(connectRate))
 
 			var j int32
 			for j = 0; j < msgsTotal; j++ {

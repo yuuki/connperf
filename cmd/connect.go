@@ -241,6 +241,10 @@ func updateStat(addr string, n time.Duration) {
 }
 
 func connectPersistent(addrport string) error {
+	bufTCPPool := sync.Pool{
+		New: func() interface{} { return make([]byte, UDPPacketSize) },
+	}
+
 	wg := &sync.WaitGroup{}
 	var i int32
 	for i = 0; i < connections; i++ {
@@ -248,25 +252,51 @@ func connectPersistent(addrport string) error {
 		go func() {
 			defer wg.Done()
 
+			ctx, cancel := context.WithTimeout(context.Background(), duration)
+			defer cancel()
+
 			conn, err := net.Dial("tcp", addrport)
 			if err != nil {
 				log.Printf("could not dial %q: %s", addrport, err)
 				return
 			}
-			if _, err := conn.Write([]byte("Hello")); err != nil {
-				log.Printf("could not write: %s\n", err)
-				return
-			}
 
-			timer := time.NewTimer(duration)
-			<-timer.C
+			msgsTotal := connectRate * int32(duration.Seconds())
+			tr := rate.Every(time.Second / time.Duration(connectRate))
+			limiter := rate.NewLimiter(tr, int(float64(connectRate)*15/100)) // allow 15% burst
+
+			var j int32
+			for j = 0; j < msgsTotal; j++ {
+				if err := limiter.Wait(ctx); err != nil {
+					if errors.Is(err, context.Canceled) ||
+						errors.Is(err, context.DeadlineExceeded) {
+						break
+					}
+					continue
+				}
+
+				err := meastureTime(addrport, func() error {
+					msg := bufTCPPool.Get().([]byte)
+					defer func() { bufTCPPool.Put(msg) }()
+
+					if _, err := conn.Write([]byte("Hello")); err != nil {
+						return xerrors.Errorf("could not write: %w", err)
+					}
+					if _, err := conn.Read(msg); err != nil {
+						return xerrors.Errorf("could not read: %w", err)
+					}
+					return nil
+				})
+				if err != nil {
+					log.Println("%v", err)
+					return
+				}
+			}
 
 			if err := conn.Close(); err != nil {
 				log.Printf("could not close: %s\n", err)
 				return
 			}
-
-			updateStat(addrport, 1)
 		}()
 	}
 	wg.Wait()

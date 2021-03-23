@@ -258,8 +258,8 @@ func connectPersistent(ctx context.Context, addrport string) error {
 
 			conn, err := net.Dial("tcp", addrport)
 			if err != nil {
-				log.Printf("could not dial %q: %s", addrport, err)
-				return
+				cause <- xerrors.Errorf("could not dial %q: %w", addrport, err)
+				cancel()
 			}
 			defer conn.Close()
 

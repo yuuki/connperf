@@ -119,7 +119,7 @@ func runConnectCmd(cmd *cobra.Command, args []string) error {
 
 	printStatHeader(cmd.OutOrStdout())
 
-	errChan := make(chan error)
+	done := make(chan error)
 	go func() {
 		eg, ctx := errgroup.WithContext(ctx)
 		for _, addr := range args {
@@ -138,13 +138,13 @@ func runConnectCmd(cmd *cobra.Command, args []string) error {
 				return nil
 			})
 		}
-		errChan <- eg.Wait()
+		done <- eg.Wait()
 	}()
 
 	select {
 	case <-ctx.Done():
 		stop()
-	case err := <-errChan:
+	case err := <-done:
 		if err != nil {
 			return err
 		}

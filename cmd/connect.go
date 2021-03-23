@@ -232,14 +232,6 @@ func meastureTime(addr string, f func() error) error {
 	return nil
 }
 
-func updateStat(addr string, n time.Duration) {
-	ts := metrics.GetOrRegisterTimer("total.latency."+addr, nil)
-	ts.Update(n)
-
-	is := metrics.GetOrRegisterTimer("tick.latency."+addr, nil)
-	is.Update(n)
-}
-
 func connectPersistent(ctx context.Context, addrport string) error {
 	ctx, cancel := context.WithTimeout(ctx, duration)
 	defer cancel()

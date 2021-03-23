@@ -126,12 +126,12 @@ func runConnectCmd(cmd *cobra.Command, args []string) error {
 			addr := addr
 			eg.Go(func() error {
 				if showOnlyResults {
-					if err := connectAddr(addr); err != nil {
+					if err := connectAddr(ctx, addr); err != nil {
 						return err
 					}
 				} else {
 					runStatLinePrinter(ctx, cmd.OutOrStdout(), addr)
-					if err := connectAddr(addr); err != nil {
+					if err := connectAddr(ctx, addr); err != nil {
 						return err
 					}
 				}
@@ -154,21 +154,21 @@ func runConnectCmd(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func connectAddr(addr string) error {
+func connectAddr(ctx context.Context, addr string) error {
 	switch protocol {
 	case "tcp":
 		switch connectFlavor {
 		case flavorPersistent:
-			if err := connectPersistent(addr); err != nil {
+			if err := connectPersistent(ctx, addr); err != nil {
 				return err
 			}
 		case flavorEphemeral:
-			if err := connectEphemeral(addr); err != nil {
+			if err := connectEphemeral(ctx, addr); err != nil {
 				return err
 			}
 		}
 	case "udp":
-		if err := connectUDP(addr); err != nil {
+		if err := connectUDP(ctx, addr); err != nil {
 			return err
 		}
 	}
@@ -240,8 +240,16 @@ func updateStat(addr string, n time.Duration) {
 	is.Update(n)
 }
 
-func connectPersistent(addrport string) error {
+func connectPersistent(ctx context.Context, addrport string) error {
+	ctx, cancel := context.WithTimeout(ctx, duration)
+	defer cancel()
+
+	bufTCPPool := sync.Pool{
+		New: func() interface{} { return make([]byte, UDPPacketSize) },
+	}
+
 	wg := &sync.WaitGroup{}
+	cause := make(chan error, 1)
 	var i int32
 	for i = 0; i < connections; i++ {
 		wg.Add(1)
@@ -250,36 +258,58 @@ func connectPersistent(addrport string) error {
 
 			conn, err := net.Dial("tcp", addrport)
 			if err != nil {
-				log.Printf("could not dial %q: %s", addrport, err)
-				return
+				cause <- xerrors.Errorf("could not dial %q: %w", addrport, err)
+				cancel()
 			}
-			if _, err := conn.Write([]byte("Hello")); err != nil {
-				log.Printf("could not write: %s\n", err)
-				return
+			defer conn.Close()
+
+			msgsTotal := connectRate * int32(duration.Seconds())
+			tr := rate.Every(time.Second / time.Duration(connectRate))
+			limiter := rate.NewLimiter(tr, int(connectRate))
+
+			var j int32
+			for j = 0; j < msgsTotal; j++ {
+				if err := limiter.Wait(ctx); err != nil {
+					if errors.Is(err, context.Canceled) ||
+						errors.Is(err, context.DeadlineExceeded) {
+						break
+					}
+					continue
+				}
+
+				err := meastureTime(addrport, func() error {
+					msg := bufTCPPool.Get().([]byte)
+					defer func() { bufTCPPool.Put(msg) }()
+
+					if _, err := conn.Write([]byte("Hello")); err != nil {
+						return xerrors.Errorf("could not write: %w", err)
+					}
+					if _, err := conn.Read(msg); err != nil {
+						return xerrors.Errorf("could not read: %w", err)
+					}
+					return nil
+				})
+				if err != nil {
+					cause <- err
+					cancel()
+				}
 			}
-
-			timer := time.NewTimer(duration)
-			<-timer.C
-
-			if err := conn.Close(); err != nil {
-				log.Printf("could not close: %s\n", err)
-				return
-			}
-
-			updateStat(addrport, 1)
 		}()
 	}
-	wg.Wait()
-	return nil
+	go func() {
+		wg.Wait()
+		close(cause)
+	}()
+	return <-cause
 }
 
-func connectEphemeral(addrport string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), duration)
+func connectEphemeral(ctx context.Context, addrport string) error {
+	ctx, cancel := context.WithTimeout(ctx, duration)
 	defer cancel()
 
 	connTotal := connectRate * int32(duration.Seconds())
 	tr := rate.Every(time.Second / time.Duration(connectRate))
-	limiter := rate.NewLimiter(tr, int(float64(connectRate)*15/100)) // allow 15% burst
+	limiter := rate.NewLimiter(tr, int(connectRate))
 
 	var wg sync.WaitGroup
 	cause := make(chan error, 1)
@@ -322,13 +352,13 @@ func connectEphemeral(addrport string) error {
 	return <-cause
 }
 
-func connectUDP(addrport string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), duration)
+func connectUDP(ctx context.Context, addrport string) error {
+	ctx, cancel := context.WithTimeout(ctx, duration)
 	defer cancel()
 
 	connTotal := connectRate * int32(duration.Seconds())
 	tr := rate.Every(time.Second / time.Duration(connectRate))
-	limiter := rate.NewLimiter(tr, int(float64(connectRate)*15/100)) // allow 15% burst
+	limiter := rate.NewLimiter(tr, int(connectRate))
 
 	bufUDPPool := sync.Pool{
 		New: func() interface{} { return make([]byte, UDPPacketSize) },

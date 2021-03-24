@@ -29,10 +29,11 @@ import (
 
 	"github.com/rcrowley/go-metrics"
 	"github.com/spf13/cobra"
-	"github.com/yuuki/connperf/limit"
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/time/rate"
 	"golang.org/x/xerrors"
+
+	"github.com/yuuki/connperf/limit"
 )
 
 const (
@@ -242,8 +243,7 @@ func connectPersistent(ctx context.Context, addrport string) error {
 
 	wg := &sync.WaitGroup{}
 	cause := make(chan error, 1)
-	var i int32
-	for i = 0; i < connections; i++ {
+	for i := 0; i < int(connections); i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
@@ -255,12 +255,11 @@ func connectPersistent(ctx context.Context, addrport string) error {
 			}
 			defer conn.Close()
 
-			msgsTotal := connectRate * int32(duration.Seconds())
+			msgsTotal := int(connectRate) * int(duration.Seconds())
 			tr := rate.Every(time.Second / time.Duration(connectRate))
 			limiter := rate.NewLimiter(tr, int(connectRate))
 
-			var j int32
-			for j = 0; j < msgsTotal; j++ {
+			for j := 0; j < msgsTotal; j++ {
 				if err := limiter.Wait(ctx); err != nil {
 					if errors.Is(err, context.Canceled) ||
 						errors.Is(err, context.DeadlineExceeded) {
@@ -288,25 +287,33 @@ func connectPersistent(ctx context.Context, addrport string) error {
 			}
 		}()
 	}
-	go func() {
-		wg.Wait()
-		close(cause)
-	}()
-	return <-cause
+
+	select {
+	case <-ctx.Done():
+	case e := <-cause:
+		return e
+	}
+
+	return nil
 }
 
 func connectEphemeral(ctx context.Context, addrport string) error {
 	ctx, cancel := context.WithTimeout(ctx, duration)
 	defer cancel()
 
-	connTotal := connectRate * int32(duration.Seconds())
+	connTotal := int(connectRate) * int(duration.Seconds())
 	tr := rate.Every(time.Second / time.Duration(connectRate))
 	limiter := rate.NewLimiter(tr, int(connectRate))
 
-	var wg sync.WaitGroup
+	wg := sync.WaitGroup{}
+	wg.Add(connTotal)
 	cause := make(chan error, 1)
-	var i int32
-	for i = 0; i < connTotal; i++ {
+	go func() {
+		wg.Wait()
+		close(cause)
+	}()
+
+	for i := 0; i < connTotal; i++ {
 		if err := limiter.Wait(ctx); err != nil {
 			if errors.Is(err, context.Canceled) ||
 				errors.Is(err, context.DeadlineExceeded) {
@@ -314,7 +321,6 @@ func connectEphemeral(ctx context.Context, addrport string) error {
 			}
 			continue
 		}
-		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			// start timer of measuring latency
@@ -337,18 +343,21 @@ func connectEphemeral(ctx context.Context, addrport string) error {
 			}
 		}()
 	}
-	go func() {
-		wg.Wait()
-		close(cause)
-	}()
-	return <-cause
+
+	select {
+	case <-ctx.Done():
+	case e := <-cause:
+		return e
+	}
+
+	return nil
 }
 
 func connectUDP(ctx context.Context, addrport string) error {
 	ctx, cancel := context.WithTimeout(ctx, duration)
 	defer cancel()
 
-	connTotal := connectRate * int32(duration.Seconds())
+	connTotal := int(connectRate) * int(duration.Seconds())
 	tr := rate.Every(time.Second / time.Duration(connectRate))
 	limiter := rate.NewLimiter(tr, int(connectRate))
 
@@ -356,10 +365,15 @@ func connectUDP(ctx context.Context, addrport string) error {
 		New: func() interface{} { return make([]byte, UDPPacketSize) },
 	}
 
-	var wg sync.WaitGroup
+	wg := sync.WaitGroup{}
+	wg.Add(connTotal)
 	cause := make(chan error, 1)
-	var i int32
-	for i = 0; i < connTotal; i++ {
+	go func() {
+		wg.Wait()
+		close(cause)
+	}()
+
+	for i := 0; i < connTotal; i++ {
 		if err := limiter.Wait(ctx); err != nil {
 			if errors.Is(err, context.Canceled) ||
 				errors.Is(err, context.DeadlineExceeded) {
@@ -367,7 +381,6 @@ func connectUDP(ctx context.Context, addrport string) error {
 			}
 			continue
 		}
-		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			// start timer of measuring latency
@@ -396,9 +409,12 @@ func connectUDP(ctx context.Context, addrport string) error {
 			}
 		}()
 	}
-	go func() {
-		wg.Wait()
-		close(cause)
-	}()
-	return <-cause
+
+	select {
+	case <-ctx.Done():
+	case e := <-cause:
+		return e
+	}
+
+	return nil
 }

@@ -44,6 +44,17 @@ jobs:
         with:
           fetch-depth: 1
 
+      - name: Set variables
+        id: variables
+        run: |
+          git_tag_name="${GITHUB_REF#refs/tags/}"
+          echo "::set-output name=git_tag_name::${git_tag_name}"
+          git_tag_name="${git_tag_name#v}"
+          echo "::set-output name=release_tag_patch::${git_tag_name}"
+          echo "::set-output name=release_tag_minor::${git_tag_name%.*}"
+          echo "::set-output name=release_tag_major::${git_tag_name%%.*}"
+          echo "::set-output name=created::$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
       - name: Login
         if: github.event_name != 'pull_request'
         uses: docker/login-action@v1
@@ -59,3 +70,6 @@ jobs:
           push: true
           tags: |
             ghcr.io/${{ github.repository }}:latest
+            ghcr.io/${{ github.repository }}:${{ steps.variables.outputs.release_tag_patch }}
+            ghcr.io/${{ github.repository }}:${{ steps.variables.outputs.release_tag_minor }}
+            ghcr.io/${{ github.repository }}:${{ steps.variables.outputs.release_tag_major }}

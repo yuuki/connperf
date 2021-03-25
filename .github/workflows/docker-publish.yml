@@ -24,17 +24,21 @@ jobs:
         with:
           fetch-depth: 1
 
-      - name: Build base image
-        run: |
-          docker build -t "${DOCKER_BASE_NAME}:latest" .
-
       - name: Login
         if: github.event_name != 'pull_request'
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          echo "${GITHUB_TOKEN}" | docker login ghcr.io -u yuuki --password-stdin
+        uses: docker/login-action@v1
+        registry: ghcr.io
+        username: ${{ github.repository_owner }}
+        password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Push to GitHub Packages
+      - name: Build and Push to GitHub Packages
         if: github.event_name != 'pull_request'
-        run: docker push "${DOCKER_BASE_NAME}:latest"
+        uses: docker/build-push-action@v2
+        with:
+          builder: ${{ steps.buildx.outputs.name }}
+          push: true
+          tags: |
+            ${{ github.repository }}:latest
+            ghcr.io/${{ github.repository }}:latest
+          cache-from: type=local,src=/tmp/.buildx-cache
+          cache-to: type=local,dest=/tmp/.buildx-cache

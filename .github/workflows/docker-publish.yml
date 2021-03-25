@@ -31,9 +31,9 @@ jobs:
       - name: Login
         if: github.event_name != 'pull_request'
         env:
-          CR_PAT: ${{ secrets.CR_PAT }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "${CR_PAT}" | docker login ghcr.io -u yuuki --password-stdin
+          echo "${GITHUB_TOKEN}" | docker login ghcr.io -u yuuki --password-stdin
 
       - name: Push to GitHub Packages
         if: github.event_name != 'pull_request'

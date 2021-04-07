@@ -306,7 +306,6 @@ func connectEphemeral(ctx context.Context, addrport string) error {
 	limiter := rate.NewLimiter(tr, int(connectRate))
 
 	wg := sync.WaitGroup{}
-	wg.Add(connTotal)
 	cause := make(chan error, 1)
 	go func() {
 		wg.Wait()
@@ -321,6 +320,7 @@ func connectEphemeral(ctx context.Context, addrport string) error {
 			}
 			continue
 		}
+		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			// start timer of measuring latency
@@ -366,7 +366,6 @@ func connectUDP(ctx context.Context, addrport string) error {
 	}
 
 	wg := sync.WaitGroup{}
-	wg.Add(connTotal)
 	cause := make(chan error, 1)
 	go func() {
 		wg.Wait()
@@ -381,6 +380,7 @@ func connectUDP(ctx context.Context, addrport string) error {
 			}
 			continue
 		}
+		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			// start timer of measuring latency

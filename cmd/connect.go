@@ -144,7 +144,7 @@ func runConnectCmd(cmd *cobra.Command, args []string) error {
 
 	select {
 	case <-ctx.Done():
-		stop()
+		break
 	case err := <-done:
 		if err != nil {
 			return err
@@ -241,52 +241,56 @@ func connectPersistent(ctx context.Context, addrport string) error {
 		New: func() interface{} { return make([]byte, UDPPacketSize) },
 	}
 
-	wg := &sync.WaitGroup{}
 	cause := make(chan error, 1)
-	for i := 0; i < int(connections); i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	go func() {
+		wg := &sync.WaitGroup{}
+		for i := 0; i < int(connections); i++ {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
 
-			conn, err := net.Dial("tcp", addrport)
-			if err != nil {
-				cause <- xerrors.Errorf("could not dial %q: %w", addrport, err)
-				cancel()
-			}
-			defer conn.Close()
-
-			msgsTotal := int(connectRate) * int(duration.Seconds())
-			tr := rate.Every(time.Second / time.Duration(connectRate))
-			limiter := rate.NewLimiter(tr, int(connectRate))
-
-			for j := 0; j < msgsTotal; j++ {
-				if err := limiter.Wait(ctx); err != nil {
-					if errors.Is(err, context.Canceled) ||
-						errors.Is(err, context.DeadlineExceeded) {
-						break
-					}
-					continue
-				}
-
-				err := meastureTime(addrport, func() error {
-					msg := bufTCPPool.Get().([]byte)
-					defer func() { bufTCPPool.Put(msg) }()
-
-					if _, err := conn.Write([]byte("Hello")); err != nil {
-						return xerrors.Errorf("could not write: %w", err)
-					}
-					if _, err := conn.Read(msg); err != nil {
-						return xerrors.Errorf("could not read: %w", err)
-					}
-					return nil
-				})
+				conn, err := net.Dial("tcp", addrport)
 				if err != nil {
-					cause <- err
+					cause <- xerrors.Errorf("could not dial %q: %w", addrport, err)
 					cancel()
 				}
-			}
-		}()
-	}
+				defer conn.Close()
+
+				msgsTotal := int(connectRate) * int(duration.Seconds())
+				tr := rate.Every(time.Second / time.Duration(connectRate))
+				limiter := rate.NewLimiter(tr, int(connectRate))
+
+				for j := 0; j < msgsTotal; j++ {
+					if err := limiter.Wait(ctx); err != nil {
+						if errors.Is(err, context.Canceled) ||
+							errors.Is(err, context.DeadlineExceeded) {
+							break
+						}
+						continue
+					}
+
+					err := meastureTime(addrport, func() error {
+						msg := bufTCPPool.Get().([]byte)
+						defer func() { bufTCPPool.Put(msg) }()
+
+						if _, err := conn.Write([]byte("Hello")); err != nil {
+							return xerrors.Errorf("could not write: %w", err)
+						}
+						if _, err := conn.Read(msg); err != nil {
+							return xerrors.Errorf("could not read: %w", err)
+						}
+						return nil
+					})
+					if err != nil {
+						cause <- err
+						cancel()
+					}
+				}
+			}()
+		}
+		wg.Wait()
+		close(cause)
+	}()
 
 	select {
 	case <-ctx.Done():
@@ -305,51 +309,50 @@ func connectEphemeral(ctx context.Context, addrport string) error {
 	tr := rate.Every(time.Second / time.Duration(connectRate))
 	limiter := rate.NewLimiter(tr, int(connectRate))
 
-	wg := sync.WaitGroup{}
 	cause := make(chan error, 1)
 	go func() {
+		wg := sync.WaitGroup{}
+		for i := 0; i < connTotal; i++ {
+			if err := limiter.Wait(ctx); err != nil {
+				if errors.Is(err, context.Canceled) ||
+					errors.Is(err, context.DeadlineExceeded) {
+					break
+				}
+				continue
+			}
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				// start timer of measuring latency
+				err := meastureTime(addrport, func() error {
+					conn, err := net.Dial("tcp", addrport)
+					if err != nil {
+						return xerrors.Errorf("could not dial %q: %w", addrport, err)
+					}
+					if _, err := conn.Write([]byte("Hello")); err != nil {
+						return xerrors.Errorf("could not write %q: %w", addrport, err)
+					}
+					if err := conn.Close(); err != nil {
+						return xerrors.Errorf("could not close %q: %w", addrport, err)
+					}
+					return nil
+				})
+				if err != nil {
+					cause <- err
+					cancel()
+				}
+			}()
+		}
 		wg.Wait()
 		close(cause)
 	}()
 
-	for i := 0; i < connTotal; i++ {
-		if err := limiter.Wait(ctx); err != nil {
-			if errors.Is(err, context.Canceled) ||
-				errors.Is(err, context.DeadlineExceeded) {
-				break
-			}
-			continue
-		}
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			// start timer of measuring latency
-			err := meastureTime(addrport, func() error {
-				conn, err := net.Dial("tcp", addrport)
-				if err != nil {
-					return xerrors.Errorf("could not dial %q: %w", addrport, err)
-				}
-				if _, err := conn.Write([]byte("Hello")); err != nil {
-					return xerrors.Errorf("could not write %q: %w", addrport, err)
-				}
-				if err := conn.Close(); err != nil {
-					return xerrors.Errorf("could not close %q: %w", addrport, err)
-				}
-				return nil
-			})
-			if err != nil {
-				cause <- err
-				cancel()
-			}
-		}()
-	}
-
 	select {
 	case <-ctx.Done():
+		break
 	case e := <-cause:
 		return e
 	}
-
 	return nil
 }
 
@@ -365,53 +368,53 @@ func connectUDP(ctx context.Context, addrport string) error {
 		New: func() interface{} { return make([]byte, UDPPacketSize) },
 	}
 
-	wg := sync.WaitGroup{}
 	cause := make(chan error, 1)
 	go func() {
+		wg := sync.WaitGroup{}
+		for i := 0; i < connTotal; i++ {
+			if err := limiter.Wait(ctx); err != nil {
+				if errors.Is(err, context.Canceled) ||
+					errors.Is(err, context.DeadlineExceeded) {
+					break
+				}
+				continue
+			}
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				// start timer of measuring latency
+				err := meastureTime(addrport, func() error {
+					// create socket
+					conn, err := net.Dial("udp4", addrport)
+					if err != nil {
+						return xerrors.Errorf("could not dial %q: %w", addrport, err)
+					}
+					defer conn.Close()
+
+					msg := bufUDPPool.Get().([]byte)
+					defer func() { bufUDPPool.Put(msg) }()
+
+					if _, err := conn.Write([]byte("Hello")); err != nil {
+						return xerrors.Errorf("could not write %q: %w", addrport, err)
+					}
+					if _, err := conn.Read(msg); err != nil {
+						return xerrors.Errorf("could not read %q: %w", addrport, err)
+					}
+					return nil
+				})
+				if err != nil {
+					cause <- err
+					cancel()
+				}
+			}()
+		}
 		wg.Wait()
 		close(cause)
 	}()
 
-	for i := 0; i < connTotal; i++ {
-		if err := limiter.Wait(ctx); err != nil {
-			if errors.Is(err, context.Canceled) ||
-				errors.Is(err, context.DeadlineExceeded) {
-				break
-			}
-			continue
-		}
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			// start timer of measuring latency
-			err := meastureTime(addrport, func() error {
-				// create socket
-				conn, err := net.Dial("udp4", addrport)
-				if err != nil {
-					return xerrors.Errorf("could not dial %q: %w", addrport, err)
-				}
-				defer conn.Close()
-
-				msg := bufUDPPool.Get().([]byte)
-				defer func() { bufUDPPool.Put(msg) }()
-
-				if _, err := conn.Write([]byte("Hello")); err != nil {
-					return xerrors.Errorf("could not write %q: %w", addrport, err)
-				}
-				if _, err := conn.Read(msg); err != nil {
-					return xerrors.Errorf("could not read %q: %w", addrport, err)
-				}
-				return nil
-			})
-			if err != nil {
-				cause <- err
-				cancel()
-			}
-		}()
-	}
-
 	select {
 	case <-ctx.Done():
+		break
 	case e := <-cause:
 		return e
 	}

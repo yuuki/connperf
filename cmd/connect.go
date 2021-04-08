@@ -23,6 +23,8 @@ import (
 	"io"
 	"log"
 	"net"
+	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"os/signal"
 	"sync"
@@ -51,6 +53,7 @@ var (
 	duration        time.Duration
 	messageBytes    int32
 	showOnlyResults bool
+	pprof           string
 )
 
 // connectCmd represents the connect command
@@ -79,6 +82,7 @@ var connectCmd = &cobra.Command{
 		return nil
 	},
 	Run: func(cmd *cobra.Command, args []string) {
+		setPprofServer()
 		if err := runConnectCmd(cmd, args); err != nil {
 			cmd.PrintErrf("%v\n", err)
 		}
@@ -103,6 +107,14 @@ func init() {
 	connectCmd.Flags().DurationVarP(&duration, "duration", "d", 10*time.Second, "measurement period")
 	connectCmd.Flags().Int32Var(&messageBytes, "message-bytes", 64, "TCP/UDP message size (bytes)")
 	connectCmd.Flags().BoolVar(&showOnlyResults, "show-only-results", false, "print only results of measurement stats")
+
+	connectCmd.Flags().StringVar(&pprof, "pporf", "localhost:6060", "endpoint profile")
+}
+
+func setPprofServer() {
+	go func() {
+		log.Println(http.ListenAndServe(pprof, nil))
+	}()
 }
 
 func printReport(w io.Writer, addrs []string) {

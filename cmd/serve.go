@@ -115,25 +115,21 @@ func handleConnection(conn net.Conn) error {
 	for {
 		n, err := conn.Read(buf)
 		if err != nil {
-			if ne, ok := err.(net.Error); ok {
-				if ne.Temporary() {
-					continue
-				}
+			if ne, ok := err.(net.Error); ok && ne.Temporary() {
+				continue
 			}
-			if !errors.Is(err, io.EOF) {
+			if errors.Is(err, io.EOF) {
+				// TODO: may miss some reading data
+				return nil
+			} else {
 				return xerrors.Errorf("Could not read %q: %w", conn.RemoteAddr(), err)
 			}
 		}
-	REWRITE:
 		if _, err := conn.Write(buf[:n]); err != nil {
-			if ne, ok := err.(net.Error); ok {
-				if ne.Temporary() {
-					goto REWRITE
-				}
+			if ne, ok := err.(net.Error); ok && ne.Temporary() {
+				return nil
 			}
-			if err != nil {
-				return xerrors.Errorf("Could not write %q: %w", conn.RemoteAddr(), err)
-			}
+			return xerrors.Errorf("Could not write %q: %w", conn.RemoteAddr(), err)
 		}
 	}
 	return nil

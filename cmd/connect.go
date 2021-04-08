@@ -17,6 +17,7 @@ package cmd
 
 import (
 	"context"
+	"crypto/rand"
 	"errors"
 	"fmt"
 	"io"
@@ -48,6 +49,7 @@ var (
 	connections     int32
 	connectRate     int32
 	duration        time.Duration
+	messageBytes    int32
 	showOnlyResults bool
 )
 
@@ -99,6 +101,7 @@ func init() {
 	connectCmd.Flags().Int32VarP(&connectRate, "rate", "r", 100,
 		fmt.Sprintf("New connections throughput (/s) (only for '%s')", flavorEphemeral))
 	connectCmd.Flags().DurationVarP(&duration, "duration", "d", 10*time.Second, "measurement period")
+	connectCmd.Flags().Int32Var(&messageBytes, "message-bytes", 64, "TCP/UDP message size (bytes)")
 	connectCmd.Flags().BoolVar(&showOnlyResults, "show-only-results", false, "print only results of measurement stats")
 }
 
@@ -238,7 +241,7 @@ func connectPersistent(ctx context.Context, addrport string) error {
 	defer cancel()
 
 	bufTCPPool := sync.Pool{
-		New: func() interface{} { return make([]byte, UDPPacketSize) },
+		New: func() interface{} { return make([]byte, messageBytes) },
 	}
 
 	cause := make(chan error, 1)
@@ -256,35 +259,24 @@ func connectPersistent(ctx context.Context, addrport string) error {
 				}
 				defer conn.Close()
 
-				msgsTotal := int(connectRate) * int(duration.Seconds())
-				tr := rate.Every(time.Second / time.Duration(connectRate))
-				limiter := rate.NewLimiter(tr, int(connectRate))
-
-				for j := 0; j < msgsTotal; j++ {
-					if err := limiter.Wait(ctx); err != nil {
-						if errors.Is(err, context.Canceled) ||
-							errors.Is(err, context.DeadlineExceeded) {
-							break
-						}
-						continue
+				err = meastureTime(addrport, func() error {
+					msg := bufTCPPool.Get().([]byte)
+					defer func() { bufTCPPool.Put(msg) }()
+					if n, err := rand.Read(msg); err != nil {
+						return xerrors.Errorf("could not read random values (length:%d): %w", n, err)
 					}
 
-					err := meastureTime(addrport, func() error {
-						msg := bufTCPPool.Get().([]byte)
-						defer func() { bufTCPPool.Put(msg) }()
-
-						if _, err := conn.Write([]byte("Hello")); err != nil {
-							return xerrors.Errorf("could not write: %w", err)
-						}
-						if _, err := conn.Read(msg); err != nil {
-							return xerrors.Errorf("could not read: %w", err)
-						}
-						return nil
-					})
-					if err != nil {
-						cause <- err
-						cancel()
+					if _, err := conn.Write(msg); err != nil {
+						return xerrors.Errorf("could not write: %w", err)
 					}
+					if _, err := conn.Read(msg); err != nil {
+						return xerrors.Errorf("could not read: %w", err)
+					}
+					return nil
+				})
+				if err != nil {
+					cause <- err
+					cancel()
 				}
 			}()
 		}
@@ -304,6 +296,10 @@ func connectPersistent(ctx context.Context, addrport string) error {
 func connectEphemeral(ctx context.Context, addrport string) error {
 	ctx, cancel := context.WithTimeout(ctx, duration)
 	defer cancel()
+
+	bufTCPPool := sync.Pool{
+		New: func() interface{} { return make([]byte, messageBytes) },
+	}
 
 	connTotal := int(connectRate) * int(duration.Seconds())
 	tr := rate.Every(time.Second / time.Duration(connectRate))
@@ -329,9 +325,19 @@ func connectEphemeral(ctx context.Context, addrport string) error {
 					if err != nil {
 						return xerrors.Errorf("could not dial %q: %w", addrport, err)
 					}
-					if _, err := conn.Write([]byte("Hello")); err != nil {
+					msg := bufTCPPool.Get().([]byte)
+					defer func() { bufTCPPool.Put(msg) }()
+					if n, err := rand.Read(msg); err != nil {
+						return xerrors.Errorf("could not read random values (length:%d): %w", n, err)
+					}
+
+					if _, err := conn.Write(msg); err != nil {
 						return xerrors.Errorf("could not write %q: %w", addrport, err)
 					}
+					if _, err := conn.Read(msg); err != nil {
+						return xerrors.Errorf("could not write %q: %w", addrport, err)
+					}
+
 					if err := conn.Close(); err != nil {
 						return xerrors.Errorf("could not close %q: %w", addrport, err)
 					}
@@ -365,7 +371,7 @@ func connectUDP(ctx context.Context, addrport string) error {
 	limiter := rate.NewLimiter(tr, int(connectRate))
 
 	bufUDPPool := sync.Pool{
-		New: func() interface{} { return make([]byte, UDPPacketSize) },
+		New: func() interface{} { return make([]byte, messageBytes) },
 	}
 
 	cause := make(chan error, 1)
@@ -393,8 +399,11 @@ func connectUDP(ctx context.Context, addrport string) error {
 
 					msg := bufUDPPool.Get().([]byte)
 					defer func() { bufUDPPool.Put(msg) }()
+					if n, err := rand.Read(msg); err != nil {
+						return xerrors.Errorf("could not read random values (length:%d): %w", n, err)
+					}
 
-					if _, err := conn.Write([]byte("Hello")); err != nil {
+					if _, err := conn.Write(msg); err != nil {
 						return xerrors.Errorf("could not write %q: %w", addrport, err)
 					}
 					if _, err := conn.Read(msg); err != nil {

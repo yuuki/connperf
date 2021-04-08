@@ -18,6 +18,7 @@ package cmd
 import (
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"os"
@@ -27,6 +28,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/yuuki/connperf/limit"
+	"golang.org/x/xerrors"
 )
 
 var (
@@ -118,7 +120,9 @@ func handleConnection(conn net.Conn) error {
 					continue
 				}
 			}
-			break
+			if !errors.Is(err, io.EOF) {
+				return xerrors.Errorf("Could not read %q: %w", conn.RemoteAddr(), err)
+			}
 		}
 	REWRITE:
 		if _, err := conn.Write(buf[:n]); err != nil {
@@ -127,7 +131,9 @@ func handleConnection(conn net.Conn) error {
 					goto REWRITE
 				}
 			}
-			break
+			if err != nil {
+				return xerrors.Errorf("Could not write %q: %w", conn.RemoteAddr(), err)
+			}
 		}
 	}
 	return nil

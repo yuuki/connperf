@@ -301,14 +301,14 @@ func connectEphemeral(ctx context.Context, addrport string) error {
 		New: func() interface{} { return make([]byte, messageBytes) },
 	}
 
-	connTotal := int(connectRate) * int(duration.Seconds())
+	connTotal := int64(connectRate) * int64(duration.Seconds())
 	tr := rate.Every(time.Second / time.Duration(connectRate))
 	limiter := rate.NewLimiter(tr, int(connectRate))
 
 	cause := make(chan error, 1)
 	go func() {
 		wg := sync.WaitGroup{}
-		for i := 0; i < connTotal; i++ {
+		for i := int64(0); i < connTotal; i++ {
 			if err := limiter.Wait(ctx); err != nil {
 				if errors.Is(err, context.Canceled) ||
 					errors.Is(err, context.DeadlineExceeded) {
@@ -366,7 +366,7 @@ func connectUDP(ctx context.Context, addrport string) error {
 	ctx, cancel := context.WithTimeout(ctx, duration)
 	defer cancel()
 
-	connTotal := int(connectRate) * int(duration.Seconds())
+	connTotal := int64(connectRate) * int64(duration.Seconds())
 	tr := rate.Every(time.Second / time.Duration(connectRate))
 	limiter := rate.NewLimiter(tr, int(connectRate))
 
@@ -377,7 +377,7 @@ func connectUDP(ctx context.Context, addrport string) error {
 	cause := make(chan error, 1)
 	go func() {
 		wg := sync.WaitGroup{}
-		for i := 0; i < connTotal; i++ {
+		for i := int64(0); i < connTotal; i++ {
 			if err := limiter.Wait(ctx); err != nil {
 				if errors.Is(err, context.Canceled) ||
 					errors.Is(err, context.DeadlineExceeded) {

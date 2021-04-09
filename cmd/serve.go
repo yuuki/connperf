@@ -16,7 +16,6 @@ limitations under the License.
 package cmd
 
 import (
-	"bufio"
 	"errors"
 	"fmt"
 	"io"
@@ -114,9 +113,8 @@ func handleConnection(conn net.Conn) error {
 	buf := serveMsgBuf.Get().([]byte)
 	defer func() { serveMsgBuf.Put(buf) }()
 
-	r, w := bufio.NewReader(conn), bufio.NewWriter(conn)
 	for {
-		n, err := r.Read(buf)
+		n, err := conn.Read(buf)
 		if err != nil {
 			if ne, ok := err.(net.Error); ok && ne.Temporary() {
 				continue
@@ -128,7 +126,7 @@ func handleConnection(conn net.Conn) error {
 				return xerrors.Errorf("Could not read %q: %w", conn.RemoteAddr(), err)
 			}
 		}
-		if _, err := w.Write(buf[:n]); err != nil {
+		if _, err := conn.Write(buf[:n]); err != nil {
 			if ne, ok := err.(net.Error); ok && ne.Temporary() {
 				return nil
 			}

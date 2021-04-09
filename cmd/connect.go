@@ -16,6 +16,7 @@ limitations under the License.
 package cmd
 
 import (
+	"bufio"
 	"context"
 	"crypto/rand"
 	"errors"
@@ -278,11 +279,11 @@ func connectPersistent(ctx context.Context, addrport string) error {
 						return xerrors.Errorf("could not read random values (length:%d): %w", n, err)
 					}
 
-					if _, err := conn.Write(msg); err != nil {
-						return xerrors.Errorf("could not write: %w", err)
+					if _, err := bufio.NewWriter(conn).Write(msg); err != nil {
+						return xerrors.Errorf("could not write %q: %w", addrport, err)
 					}
-					if _, err := conn.Read(msg); err != nil {
-						return xerrors.Errorf("could not read: %w", err)
+					if _, err := bufio.NewReader(conn).Read(msg); err != nil {
+						return xerrors.Errorf("could not read %q: %w", addrport, err)
 					}
 					return nil
 				})
@@ -337,22 +338,21 @@ func connectEphemeral(ctx context.Context, addrport string) error {
 					if err != nil {
 						return xerrors.Errorf("could not dial %q: %w", addrport, err)
 					}
+					defer conn.Close()
+
 					msg := bufTCPPool.Get().([]byte)
 					defer func() { bufTCPPool.Put(msg) }()
 					if n, err := rand.Read(msg); err != nil {
 						return xerrors.Errorf("could not read random values (length:%d): %w", n, err)
 					}
 
-					if _, err := conn.Write(msg); err != nil {
+					if _, err := bufio.NewWriter(conn).Write(msg); err != nil {
 						return xerrors.Errorf("could not write %q: %w", addrport, err)
 					}
-					if _, err := conn.Read(msg); err != nil {
-						return xerrors.Errorf("could not write %q: %w", addrport, err)
+					if _, err := bufio.NewReader(conn).Read(msg); err != nil {
+						return xerrors.Errorf("could not read %q: %w", addrport, err)
 					}
 
-					if err := conn.Close(); err != nil {
-						return xerrors.Errorf("could not close %q: %w", addrport, err)
-					}
 					return nil
 				})
 				if err != nil {
@@ -415,12 +415,13 @@ func connectUDP(ctx context.Context, addrport string) error {
 						return xerrors.Errorf("could not read random values (length:%d): %w", n, err)
 					}
 
-					if _, err := conn.Write(msg); err != nil {
+					if _, err := bufio.NewWriter(conn).Write(msg); err != nil {
 						return xerrors.Errorf("could not write %q: %w", addrport, err)
 					}
-					if _, err := conn.Read(msg); err != nil {
+					if _, err := bufio.NewReader(conn).Read(msg); err != nil {
 						return xerrors.Errorf("could not read %q: %w", addrport, err)
 					}
+
 					return nil
 				})
 				if err != nil {

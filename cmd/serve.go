@@ -25,6 +25,7 @@ import (
 	"os"
 	"os/signal"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -120,7 +121,7 @@ func handleConnection(conn net.Conn) error {
 			if ne, ok := err.(net.Error); ok && ne.Temporary() {
 				continue
 			}
-			if errors.Is(err, io.EOF) {
+			if errors.Is(err, io.EOF) || errors.Is(err, syscall.ECONNRESET) {
 				// TODO: may miss some reading data
 				return nil
 			} else {

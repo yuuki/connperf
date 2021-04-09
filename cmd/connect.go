@@ -337,6 +337,7 @@ func connectEphemeral(ctx context.Context, addrport string) error {
 					if err != nil {
 						return xerrors.Errorf("could not dial %q: %w", addrport, err)
 					}
+
 					msg := bufTCPPool.Get().([]byte)
 					defer func() { bufTCPPool.Put(msg) }()
 					if n, err := rand.Read(msg); err != nil {
@@ -347,12 +348,13 @@ func connectEphemeral(ctx context.Context, addrport string) error {
 						return xerrors.Errorf("could not write %q: %w", addrport, err)
 					}
 					if _, err := conn.Read(msg); err != nil {
-						return xerrors.Errorf("could not write %q: %w", addrport, err)
+						return xerrors.Errorf("could not read %q: %w", addrport, err)
 					}
 
 					if err := conn.Close(); err != nil {
 						return xerrors.Errorf("could not close %q: %w", addrport, err)
 					}
+
 					return nil
 				})
 				if err != nil {

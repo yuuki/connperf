@@ -113,14 +113,16 @@ func handleConnection(conn net.Conn) error {
 	buf := serveMsgBuf.Get().([]byte)
 	defer func() { serveMsgBuf.Put(buf) }()
 
-	for {
+	var done bool
+	for !done {
 		n, err := conn.Read(buf)
 		if err != nil {
 			if ne, ok := err.(net.Error); ok && ne.Temporary() {
 				continue
 			}
-			if errors.Is(err, io.EOF) || errors.Is(err, syscall.ECONNRESET) {
-				// TODO: may miss some reading data
+			if errors.Is(err, io.EOF) {
+				done = true
+			} else if errors.Is(err, syscall.ECONNRESET) {
 				return nil
 			} else {
 				return xerrors.Errorf("Could not read %q: %w", conn.RemoteAddr(), err)

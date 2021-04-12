@@ -101,6 +101,9 @@ func serveTCP() error {
 		if err := sock.SetQuickAck(conn); err != nil {
 			return err
 		}
+		if err := sock.SetLinger(conn); err != nil {
+			return err
+		}
 		go func() {
 			if err := handleConnection(conn); err != nil {
 				log.Println(err)

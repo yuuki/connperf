@@ -24,3 +24,14 @@ func SetQuickAck(conn net.Conn) error {
 	}
 	return nil
 }
+
+func SetLinger(conn net.Conn) error {
+	tcpconn, ok := conn.(*net.TCPConn)
+	if !ok {
+		return xerrors.Errorf("failed type assertion %q", conn.RemoteAddr())
+	}
+	if err := tcpconn.SetLinger(0); err != nil {
+		return xerrors.Errorf("could not set SO_LINGER: %w", err)
+	}
+	return nil
+}

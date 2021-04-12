@@ -338,6 +338,9 @@ func connectEphemeral(ctx context.Context, addrport string) error {
 					if err != nil {
 						return xerrors.Errorf("could not dial %q: %w", addrport, err)
 					}
+					if err := sock.SetLinger(conn); err != nil {
+						return err
+					}
 					if err := sock.SetQuickAck(conn); err != nil {
 						return err
 					}

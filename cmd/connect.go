@@ -314,6 +314,10 @@ func connectEphemeral(ctx context.Context, addrport string) error {
 		New: func() interface{} { return make([]byte, messageBytes) },
 	}
 
+	dialer := net.Dialer{
+		Control: sock.GetTCPControlWithFastOpen(),
+	}
+
 	connTotal := int64(connectRate) * int64(duration.Seconds())
 	tr := rate.Every(time.Second / time.Duration(connectRate))
 	limiter := rate.NewLimiter(tr, int(connectRate))
@@ -334,7 +338,7 @@ func connectEphemeral(ctx context.Context, addrport string) error {
 				defer wg.Done()
 				// start timer of measuring latency
 				err := meastureTime(addrport, func() error {
-					conn, err := net.Dial("tcp", addrport)
+					conn, err := dialer.Dial("tcp", addrport)
 					if err != nil {
 						return xerrors.Errorf("could not dial %q: %w", addrport, err)
 					}

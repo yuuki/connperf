@@ -16,6 +16,7 @@ limitations under the License.
 package cmd
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -77,7 +78,11 @@ func init() {
 }
 
 func serveTCP() error {
-	ln, err := net.Listen("tcp", listenAddr)
+	lc := net.ListenConfig{
+		Control: sock.GetTCPControlWithFastOpen(),
+	}
+
+	ln, err := lc.Listen(context.Background(), "tcp", listenAddr)
 	if err != nil {
 		return fmt.Errorf("listen %q error: %s", listenAddr, err)
 	}

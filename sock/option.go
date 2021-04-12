@@ -2,9 +2,15 @@ package sock
 
 import (
 	"net"
+	"syscall"
 
 	"golang.org/x/sys/unix"
 	"golang.org/x/xerrors"
+)
+
+const (
+	TCP_FASTOPEN         = 23 // linux/include/uapi/linux/tcp.h
+	TCP_FASTOPEN_CONNECT = 30 // linux/include/uapi/linux/tcp.h
 )
 
 func SetQuickAck(conn net.Conn) error {
@@ -34,4 +40,15 @@ func SetLinger(conn net.Conn) error {
 		return xerrors.Errorf("could not set SO_LINGER: %w", err)
 	}
 	return nil
+}
+
+func GetTCPControlWithFastOpen() func(network, address string, c syscall.RawConn) error {
+	return func(network, _ string, c syscall.RawConn) error {
+		return c.Control(func(fd uintptr) {
+			// Enable FASTOPEN on the client side
+			syscall.SetsockoptInt(int(fd), syscall.SOL_TCP, TCP_FASTOPEN_CONNECT, 1)
+			// Enable FASTOPEN on the server side
+			syscall.SetsockoptInt(int(fd), syscall.SOL_TCP, TCP_FASTOPEN, 1)
+		})
+	}
 }

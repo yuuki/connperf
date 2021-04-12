@@ -29,7 +29,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/yuuki/connperf/limit"
-	"golang.org/x/sys/unix"
+	"github.com/yuuki/connperf/sock"
 	"golang.org/x/xerrors"
 )
 
@@ -98,19 +98,8 @@ func serveTCP() error {
 			}
 			log.Fatalf("unexpected error when accepting TCP connections: %s", err)
 		}
-		tcpconn, ok := conn.(*net.TCPConn)
-		if !ok {
-			return xerrors.Errorf("failed type assertion %q: %w", conn.RemoteAddr(), err)
-		}
-		syscon, err := tcpconn.SyscallConn()
-		if err != nil {
-			return xerrors.Errorf("Could not get syscall conn %q: %w", conn.RemoteAddr(), err)
-		}
-		err = syscon.Control(func(fd uintptr) {
-			unix.SetsockoptInt(int(fd), unix.IPPROTO_TCP, unix.TCP_QUICKACK, 1)
-		})
-		if err != nil {
-			return xerrors.Errorf("Could not control %q: %w", conn.RemoteAddr(), err)
+		if err := sock.SetQuickAck(conn); err != nil {
+			return err
 		}
 		go func() {
 			if err := handleConnection(conn); err != nil {

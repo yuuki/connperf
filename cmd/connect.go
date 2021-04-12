@@ -33,6 +33,7 @@ import (
 	"github.com/rcrowley/go-metrics"
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/errgroup"
+	"golang.org/x/sys/unix"
 	"golang.org/x/time/rate"
 	"golang.org/x/xerrors"
 
@@ -336,6 +337,20 @@ func connectEphemeral(ctx context.Context, addrport string) error {
 					conn, err := net.Dial("tcp", addrport)
 					if err != nil {
 						return xerrors.Errorf("could not dial %q: %w", addrport, err)
+					}
+					tcpconn, ok := conn.(*net.TCPConn)
+					if !ok {
+						return xerrors.Errorf("failed type assertion %q: %w", addrport, err)
+					}
+					syscon, err := tcpconn.SyscallConn()
+					if err != nil {
+						return xerrors.Errorf("Could not get syscall conn %q: %w", addrport, err)
+					}
+					err = syscon.Control(func(fd uintptr) {
+						unix.SetsockoptInt(int(fd), unix.IPPROTO_TCP, unix.TCP_QUICKACK, 1)
+					})
+					if err != nil {
+						return xerrors.Errorf("Could not control %q: %w", addrport, err)
 					}
 
 					msg := bufTCPPool.Get().([]byte)

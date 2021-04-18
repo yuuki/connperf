@@ -16,6 +16,7 @@ limitations under the License.
 package cmd
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -29,6 +30,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/yuuki/connperf/limit"
+	"github.com/yuuki/connperf/sock"
 	"golang.org/x/xerrors"
 )
 
@@ -76,7 +78,11 @@ func init() {
 }
 
 func serveTCP() error {
-	ln, err := net.Listen("tcp", listenAddr)
+	lc := net.ListenConfig{
+		Control: sock.GetTCPControlWithFastOpen(),
+	}
+
+	ln, err := lc.Listen(context.Background(), "tcp", listenAddr)
 	if err != nil {
 		return fmt.Errorf("listen %q error: %s", listenAddr, err)
 	}
@@ -96,6 +102,12 @@ func serveTCP() error {
 				log.Fatalf("unrecoverable error when accepting TCP connections: %s", err)
 			}
 			log.Fatalf("unexpected error when accepting TCP connections: %s", err)
+		}
+		if err := sock.SetQuickAck(conn); err != nil {
+			return err
+		}
+		if err := sock.SetLinger(conn); err != nil {
+			return err
 		}
 		go func() {
 			if err := handleConnection(conn); err != nil {

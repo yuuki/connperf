@@ -272,24 +272,38 @@ func connectPersistent(ctx context.Context, addrport string) error {
 				}
 				defer conn.Close()
 
-				err = meastureTime(addrport, func() error {
-					msg := bufTCPPool.Get().([]byte)
-					defer func() { bufTCPPool.Put(msg) }()
-					if n, err := rand.Read(msg); err != nil {
-						return xerrors.Errorf("could not read random values (length:%d): %w", n, err)
+				msgsTotal := int64(connectRate) * int64(duration.Seconds())
+				tr := rate.Every(time.Second / time.Duration(connectRate))
+				limiter := rate.NewLimiter(tr, int(connectRate))
+
+				for j := int64(0); j < msgsTotal; j++ {
+					if err := limiter.Wait(ctx); err != nil {
+						if errors.Is(err, context.Canceled) ||
+							errors.Is(err, context.DeadlineExceeded) {
+							break
+						}
+						continue
 					}
 
-					if _, err := conn.Write(msg); err != nil {
-						return xerrors.Errorf("could not write: %w", err)
+					err = meastureTime(addrport, func() error {
+						msg := bufTCPPool.Get().([]byte)
+						defer func() { bufTCPPool.Put(msg) }()
+						if n, err := rand.Read(msg); err != nil {
+							return xerrors.Errorf("could not read random values (length:%d): %w", n, err)
+						}
+
+						if _, err := conn.Write(msg); err != nil {
+							return xerrors.Errorf("could not write: %w", err)
+						}
+						if _, err := conn.Read(msg); err != nil {
+							return xerrors.Errorf("could not read: %w", err)
+						}
+						return nil
+					})
+					if err != nil {
+						cause <- err
+						cancel()
 					}
-					if _, err := conn.Read(msg); err != nil {
-						return xerrors.Errorf("could not read: %w", err)
-					}
-					return nil
-				})
-				if err != nil {
-					cause <- err
-					cancel()
 				}
 			}()
 		}

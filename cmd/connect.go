@@ -54,7 +54,8 @@ var (
 	duration        time.Duration
 	messageBytes    int32
 	showOnlyResults bool
-	pprof           string
+	pprof           bool
+	pprofAddr       string
 )
 
 // connectCmd represents the connect command
@@ -109,12 +110,16 @@ func init() {
 	connectCmd.Flags().Int32Var(&messageBytes, "message-bytes", 64, "TCP/UDP message size (bytes)")
 	connectCmd.Flags().BoolVar(&showOnlyResults, "show-only-results", false, "print only results of measurement stats")
 
-	connectCmd.Flags().StringVar(&pprof, "pporf", "localhost:6060", "endpoint profile")
+	connectCmd.Flags().BoolVar(&pprof, "enable-pprof", false, "a flag of pprof")
+	connectCmd.Flags().StringVar(&pprofAddr, "pporf", "localhost:6060", "pprof listening address:port")
 }
 
 func setPprofServer() {
+	if !pprof {
+		return
+	}
 	go func() {
-		log.Println(http.ListenAndServe(pprof, nil))
+		log.Println(http.ListenAndServe(pprofAddr, nil))
 	}()
 }
 

@@ -34,7 +34,6 @@ import (
 	"github.com/spf13/cobra"
 	"go.uber.org/ratelimit"
 	"golang.org/x/sync/errgroup"
-	"golang.org/x/time/rate"
 	"golang.org/x/xerrors"
 
 	"github.com/yuuki/connperf/limit"
@@ -301,11 +300,10 @@ func connectPersistent(ctx context.Context, addrport string) error {
 				defer conn.Close()
 
 				msgsTotal := int64(connectRate) * int64(duration.Seconds())
-				tr := rate.Every(time.Second / time.Duration(connectRate))
-				limiter := rate.NewLimiter(tr, int(connectRate))
+				limiter := ratelimit.New(int(connectRate))
 
 				for j := int64(0); j < msgsTotal; j++ {
-					if err := limiter.Wait(ctx); err != nil {
+					if err := waitLim(ctx, limiter); err != nil {
 						if errors.Is(err, context.Canceled) ||
 							errors.Is(err, context.DeadlineExceeded) {
 							break
@@ -433,8 +431,7 @@ func connectUDP(ctx context.Context, addrport string) error {
 	defer cancel()
 
 	connTotal := int64(connectRate) * int64(duration.Seconds())
-	tr := rate.Every(time.Second / time.Duration(connectRate))
-	limiter := rate.NewLimiter(tr, int(connectRate))
+	limiter := ratelimit.New(int(connectRate))
 
 	bufUDPPool := sync.Pool{
 		New: func() interface{} { return make([]byte, messageBytes) },
@@ -444,7 +441,7 @@ func connectUDP(ctx context.Context, addrport string) error {
 	go func() {
 		wg := sync.WaitGroup{}
 		for i := int64(0); i < connTotal; i++ {
-			if err := limiter.Wait(ctx); err != nil {
+			if err := waitLim(ctx, limiter); err != nil {
 				if errors.Is(err, context.Canceled) ||
 					errors.Is(err, context.DeadlineExceeded) {
 					break

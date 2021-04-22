@@ -124,6 +124,28 @@ func setPprofServer() {
 	}()
 }
 
+func waitLim(ctx context.Context, rl ratelimit.Limiter) error {
+	// Check if ctx is already cancelled
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+	}
+
+	done := make(chan struct{})
+	go func() {
+		rl.Take()
+		done <- struct{}{}
+	}()
+	select {
+	case <-done:
+		return nil
+	case <-ctx.Done():
+		// Context was canceled before Take() task could be processed.
+		return ctx.Err()
+	}
+}
+
 func printReport(w io.Writer, addrs []string) {
 	fmt.Fprintln(w, "--- A result during total execution time ---")
 	for _, addr := range addrs {
@@ -345,7 +367,13 @@ func connectEphemeral(ctx context.Context, addrport string) error {
 	go func() {
 		wg := sync.WaitGroup{}
 		for i := int64(0); i < connTotal; i++ {
-			limiter.Take()
+			if err := waitLim(ctx, limiter); err != nil {
+				if errors.Is(err, context.Canceled) ||
+					errors.Is(err, context.DeadlineExceeded) {
+					break
+				}
+				continue
+			}
 			wg.Add(1)
 			go func() {
 				defer wg.Done()

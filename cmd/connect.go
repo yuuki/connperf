@@ -32,6 +32,7 @@ import (
 
 	"github.com/rcrowley/go-metrics"
 	"github.com/spf13/cobra"
+	"go.uber.org/ratelimit"
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/time/rate"
 	"golang.org/x/xerrors"
@@ -338,20 +339,13 @@ func connectEphemeral(ctx context.Context, addrport string) error {
 	}
 
 	connTotal := int64(connectRate) * int64(duration.Seconds())
-	tr := rate.Every(time.Second / time.Duration(connectRate))
-	limiter := rate.NewLimiter(tr, int(connectRate))
+	limiter := ratelimit.New(int(connectRate))
 
 	cause := make(chan error, 1)
 	go func() {
 		wg := sync.WaitGroup{}
 		for i := int64(0); i < connTotal; i++ {
-			if err := limiter.Wait(ctx); err != nil {
-				if errors.Is(err, context.Canceled) ||
-					errors.Is(err, context.DeadlineExceeded) {
-					break
-				}
-				continue
-			}
+			limiter.Take()
 			wg.Add(1)
 			go func() {
 				defer wg.Done()

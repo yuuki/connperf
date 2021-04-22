@@ -32,8 +32,8 @@ import (
 
 	"github.com/rcrowley/go-metrics"
 	"github.com/spf13/cobra"
+	"go.uber.org/ratelimit"
 	"golang.org/x/sync/errgroup"
-	"golang.org/x/time/rate"
 	"golang.org/x/xerrors"
 
 	"github.com/yuuki/connperf/limit"
@@ -121,6 +121,28 @@ func setPprofServer() {
 	go func() {
 		log.Println(http.ListenAndServe(pprofAddr, nil))
 	}()
+}
+
+func waitLim(ctx context.Context, rl ratelimit.Limiter) error {
+	// Check if ctx is already cancelled
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+	}
+
+	done := make(chan struct{})
+	go func() {
+		rl.Take()
+		done <- struct{}{}
+	}()
+	select {
+	case <-done:
+		return nil
+	case <-ctx.Done():
+		// Context was canceled before Take() task could be processed.
+		return ctx.Err()
+	}
 }
 
 func printReport(w io.Writer, addrs []string) {
@@ -278,11 +300,10 @@ func connectPersistent(ctx context.Context, addrport string) error {
 				defer conn.Close()
 
 				msgsTotal := int64(connectRate) * int64(duration.Seconds())
-				tr := rate.Every(time.Second / time.Duration(connectRate))
-				limiter := rate.NewLimiter(tr, int(connectRate))
+				limiter := ratelimit.New(int(connectRate))
 
 				for j := int64(0); j < msgsTotal; j++ {
-					if err := limiter.Wait(ctx); err != nil {
+					if err := waitLim(ctx, limiter); err != nil {
 						if errors.Is(err, context.Canceled) ||
 							errors.Is(err, context.DeadlineExceeded) {
 							break
@@ -338,14 +359,13 @@ func connectEphemeral(ctx context.Context, addrport string) error {
 	}
 
 	connTotal := int64(connectRate) * int64(duration.Seconds())
-	tr := rate.Every(time.Second / time.Duration(connectRate))
-	limiter := rate.NewLimiter(tr, int(connectRate))
+	limiter := ratelimit.New(int(connectRate))
 
 	cause := make(chan error, 1)
 	go func() {
 		wg := sync.WaitGroup{}
 		for i := int64(0); i < connTotal; i++ {
-			if err := limiter.Wait(ctx); err != nil {
+			if err := waitLim(ctx, limiter); err != nil {
 				if errors.Is(err, context.Canceled) ||
 					errors.Is(err, context.DeadlineExceeded) {
 					break
@@ -411,8 +431,7 @@ func connectUDP(ctx context.Context, addrport string) error {
 	defer cancel()
 
 	connTotal := int64(connectRate) * int64(duration.Seconds())
-	tr := rate.Every(time.Second / time.Duration(connectRate))
-	limiter := rate.NewLimiter(tr, int(connectRate))
+	limiter := ratelimit.New(int(connectRate))
 
 	bufUDPPool := sync.Pool{
 		New: func() interface{} { return make([]byte, messageBytes) },
@@ -422,7 +441,7 @@ func connectUDP(ctx context.Context, addrport string) error {
 	go func() {
 		wg := sync.WaitGroup{}
 		for i := int64(0); i < connTotal; i++ {
-			if err := limiter.Wait(ctx); err != nil {
+			if err := waitLim(ctx, limiter); err != nil {
 				if errors.Is(err, context.Canceled) ||
 					errors.Is(err, context.DeadlineExceeded) {
 					break

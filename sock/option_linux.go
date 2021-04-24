@@ -3,6 +3,7 @@
 package sock
 
 import (
+	"log"
 	"net"
 	"syscall"
 
@@ -25,7 +26,10 @@ func SetQuickAck(conn net.Conn) error {
 		return xerrors.Errorf("Could not get syscall conn %q: %w", conn.RemoteAddr(), err)
 	}
 	err = syscon.Control(func(fd uintptr) {
-		unix.SetsockoptInt(int(fd), unix.IPPROTO_TCP, unix.TCP_QUICKACK, 1)
+		err := unix.SetsockoptInt(int(fd), unix.IPPROTO_TCP, unix.TCP_QUICKACK, 1)
+		if err != nil {
+			log.Println(err)
+		}
 	})
 	if err != nil {
 		return xerrors.Errorf("Could not control %q: %w", conn.RemoteAddr(), err)
@@ -47,10 +51,17 @@ func SetLinger(conn net.Conn) error {
 func GetTCPControlWithFastOpen() func(network, address string, c syscall.RawConn) error {
 	return func(network, _ string, c syscall.RawConn) error {
 		return c.Control(func(fd uintptr) {
+			var err error
 			// Enable FASTOPEN on the client side
-			syscall.SetsockoptInt(int(fd), syscall.SOL_TCP, TCP_FASTOPEN_CONNECT, 1)
+			err = syscall.SetsockoptInt(int(fd), syscall.SOL_TCP, TCP_FASTOPEN_CONNECT, 1)
+			if err != nil {
+				log.Println(err)
+			}
 			// Enable FASTOPEN on the server side
-			syscall.SetsockoptInt(int(fd), syscall.SOL_TCP, TCP_FASTOPEN, 1)
+			err = syscall.SetsockoptInt(int(fd), syscall.SOL_TCP, TCP_FASTOPEN, 1)
+			if err != nil {
+				log.Println(err)
+			}
 		})
 	}
 }

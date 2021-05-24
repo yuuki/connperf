@@ -46,16 +46,17 @@ const (
 )
 
 var (
-	protocol        string
-	intervalStats   time.Duration
-	connectFlavor   string
-	connections     int32
-	connectRate     int32
-	duration        time.Duration
-	messageBytes    int32
-	showOnlyResults bool
-	pprof           bool
-	pprofAddr       string
+	protocol             string
+	intervalStats        time.Duration
+	connectFlavor        string
+	connections          int32
+	connectRate          int32
+	duration             time.Duration
+	messageBytes         int32
+	showOnlyResults      bool
+	mergeResultsEachHost bool
+	pprof                bool
+	pprofAddr            string
 )
 
 // connectCmd represents the connect command
@@ -79,6 +80,10 @@ var connectCmd = &cobra.Command{
 
 		if len(args) < 1 {
 			return fmt.Errorf("required addresses")
+		}
+
+		if mergeResultsEachHost && !showOnlyResults {
+			return fmt.Errorf("--merge-results-each-host flag requires --show-only-results flag")
 		}
 
 		return nil
@@ -109,6 +114,7 @@ func init() {
 	connectCmd.Flags().DurationVarP(&duration, "duration", "d", 10*time.Second, "measurement period")
 	connectCmd.Flags().Int32Var(&messageBytes, "message-bytes", 64, "TCP/UDP message size (bytes)")
 	connectCmd.Flags().BoolVar(&showOnlyResults, "show-only-results", false, "print only results of measurement stats")
+	connectCmd.Flags().BoolVar(&mergeResultsEachHost, "merge-results-each-host", false, "merge results of each host (with --show-only-results)")
 
 	connectCmd.Flags().BoolVar(&pprof, "enable-pprof", false, "a flag of pprof")
 	connectCmd.Flags().StringVar(&pprofAddr, "pporf", "localhost:6060", "pprof listening address:port")
@@ -145,10 +151,30 @@ func waitLim(ctx context.Context, rl ratelimit.Limiter) error {
 	}
 }
 
+func getOrRegisterTimer(key, addr string) metrics.Timer {
+	if mergeResultsEachHost {
+		return metrics.GetOrRegisterTimer(key, nil)
+	}
+	return metrics.GetOrRegisterTimer(key+"."+addr, nil)
+}
+
+func unregisterTimer(key, addr string) {
+	if mergeResultsEachHost {
+		metrics.Unregister(key)
+		return
+	}
+	metrics.Unregister(key + "." + addr)
+}
+
 func printReport(w io.Writer, addrs []string) {
 	fmt.Fprintln(w, "--- A result during total execution time ---")
+	if mergeResultsEachHost {
+		ts := getOrRegisterTimer("total.latency", "")
+		printStatLine(w, fmt.Sprintf("merged(%d hosts)", len(addrs)), ts)
+		return
+	}
 	for _, addr := range addrs {
-		ts := metrics.GetOrRegisterTimer("total.latency."+addr, nil)
+		ts := getOrRegisterTimer("total.latency", addr)
 		printStatLine(w, addr, ts)
 	}
 }
@@ -256,17 +282,17 @@ func runStatLinePrinter(ctx context.Context, w io.Writer, addr string) {
 			case <-ctx.Done():
 				return
 			case <-t.C:
-				is := metrics.GetOrRegisterTimer("tick.latency."+addr, nil)
+				is := getOrRegisterTimer("tick.latency", addr)
 				printStatLine(w, addr, is)
-				metrics.Unregister("tick.latency." + addr)
+				unregisterTimer("tick.latency", addr)
 			}
 		}
 	}()
 }
 
 func meastureTime(addr string, f func() error) error {
-	ts := metrics.GetOrRegisterTimer("total.latency."+addr, nil)
-	is := metrics.GetOrRegisterTimer("tick.latency."+addr, nil)
+	ts := getOrRegisterTimer("total.latency", addr)
+	is := getOrRegisterTimer("tick.latency", addr)
 	start := time.Now()
 	if err := f(); err != nil {
 		return err

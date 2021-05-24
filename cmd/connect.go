@@ -296,6 +296,7 @@ func connectPersistent(ctx context.Context, addrport string) error {
 				if err != nil {
 					cause <- xerrors.Errorf("could not dial %q: %w", addrport, err)
 					cancel()
+					return
 				}
 				defer conn.Close()
 

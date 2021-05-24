@@ -290,7 +290,7 @@ func runStatLinePrinter(ctx context.Context, w io.Writer, addr string) {
 	}()
 }
 
-func meastureTime(addr string, f func() error) error {
+func measureTime(addr string, f func() error) error {
 	ts := getOrRegisterTimer("total.latency", addr)
 	is := getOrRegisterTimer("tick.latency", addr)
 	start := time.Now()
@@ -338,7 +338,7 @@ func connectPersistent(ctx context.Context, addrport string) error {
 						continue
 					}
 
-					err = meastureTime(addrport, func() error {
+					err = measureTime(addrport, func() error {
 						msg := bufTCPPool.Get().([]byte)
 						defer func() { bufTCPPool.Put(msg) }()
 						if n, err := rand.Read(msg); err != nil {
@@ -403,7 +403,7 @@ func connectEphemeral(ctx context.Context, addrport string) error {
 			go func() {
 				defer wg.Done()
 				// start timer of measuring latency
-				err := meastureTime(addrport, func() error {
+				err := measureTime(addrport, func() error {
 					conn, err := dialer.Dial("tcp", addrport)
 					if err != nil {
 						return xerrors.Errorf("could not dial %q: %w", addrport, err)
@@ -479,7 +479,7 @@ func connectUDP(ctx context.Context, addrport string) error {
 			go func() {
 				defer wg.Done()
 				// start timer of measuring latency
-				err := meastureTime(addrport, func() error {
+				err := measureTime(addrport, func() error {
 					// create socket
 					conn, err := net.Dial("udp4", addrport)
 					if err != nil {

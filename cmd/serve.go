@@ -31,11 +31,12 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/yuuki/connperf/limit"
 	"github.com/yuuki/connperf/sock"
+	"golang.org/x/sync/errgroup"
 	"golang.org/x/xerrors"
 )
 
 var (
-	listenAddr string
+	listenAddrs []string
 )
 
 // serveCmd represents the serve command
@@ -47,7 +48,7 @@ var serveCmd = &cobra.Command{
 			return err
 		}
 
-		cmd.Printf("Listening at %q ...\n", listenAddr)
+		cmd.Printf("Listening at %q ...\n", listenAddrs)
 		go func() {
 			if err := serveTCP(); err != nil {
 				log.Println(err)
@@ -74,7 +75,7 @@ var serveMsgBuf = sync.Pool{
 
 func init() {
 	rootCmd.AddCommand(serveCmd)
-	serveCmd.Flags().StringVarP(&listenAddr, "listenAddr", "l", "0.0.0.0:9100", "listening address")
+	serveCmd.Flags().StringSliceVarP(&listenAddrs, "listenAddr", "l", []string{"0.0.0.0:9100"}, "listening address")
 }
 
 func serveTCP() error {
@@ -82,38 +83,48 @@ func serveTCP() error {
 		Control: sock.GetTCPControlWithFastOpen(),
 	}
 
-	ln, err := lc.Listen(context.Background(), "tcp", listenAddr)
-	if err != nil {
-		return fmt.Errorf("listen %q error: %s", listenAddr, err)
-	}
+	eg := errgroup.Group{}
+	for _, listenAddr := range listenAddrs {
+		listenAddr := listenAddr
+		eg.Go(func() error {
+			ln, err := lc.Listen(context.Background(), "tcp", listenAddr)
+			if err != nil {
+				return fmt.Errorf("listen %q error: %s", listenAddr, err)
+			}
 
-	for {
-		conn, err := ln.Accept()
-		if err != nil {
-			if ne, ok := err.(net.Error); ok {
-				if ne.Temporary() {
-					log.Printf("temporary error when listening for TCP addr %q: %s", ln.Addr(), err)
-					time.Sleep(time.Second)
-					continue
+			for {
+				conn, err := ln.Accept()
+				if err != nil {
+					if ne, ok := err.(net.Error); ok {
+						if ne.Temporary() {
+							log.Printf("temporary error when listening for TCP addr %q: %s", ln.Addr(), err)
+							time.Sleep(time.Second)
+							continue
+						}
+						if errors.Is(err, net.ErrClosed) {
+							break
+						}
+						log.Fatalf("unrecoverable error when accepting TCP connections: %s", err)
+					}
+					log.Fatalf("unexpected error when accepting TCP connections: %s", err)
 				}
-				if errors.Is(err, net.ErrClosed) {
-					break
+				if err := sock.SetQuickAck(conn); err != nil {
+					return err
 				}
-				log.Fatalf("unrecoverable error when accepting TCP connections: %s", err)
+				if err := sock.SetLinger(conn); err != nil {
+					return err
+				}
+				go func() {
+					if err := handleConnection(conn); err != nil {
+						log.Println(err)
+					}
+				}()
 			}
-			log.Fatalf("unexpected error when accepting TCP connections: %s", err)
-		}
-		if err := sock.SetQuickAck(conn); err != nil {
-			return err
-		}
-		if err := sock.SetLinger(conn); err != nil {
-			return err
-		}
-		go func() {
-			if err := handleConnection(conn); err != nil {
-				log.Println(err)
-			}
-		}()
+			return nil
+		})
+	}
+	if err := eg.Wait(); err != nil {
+		return err
 	}
 
 	return nil
@@ -157,33 +168,39 @@ const (
 var bufUDPPool sync.Pool
 
 func serveUDP() error {
-	// create listening socket
-	ln, err := net.ListenPacket("udp4", listenAddr)
-	if err != nil {
-		return fmt.Errorf("listen %q error: %s", listenAddr, err)
-	}
-	defer ln.Close()
-
-	bufUDPPool = sync.Pool{
-		New: func() interface{} { return make([]byte, UDPPacketSize) },
-	}
-
-	for {
-		msg := bufUDPPool.Get().([]byte)
-		n, addr, err := ln.ReadFrom(msg[0:])
-		if err != nil {
-			log.Printf("UDP read error: %s", err)
-			continue
-		}
-
-		go func() {
-			n, err = ln.WriteTo(msg[:n], addr)
+	eg := errgroup.Group{}
+	for _, listenAddr := range listenAddrs {
+		listenAddr := listenAddr
+		eg.Go(func() error {
+			// create listening socket
+			ln, err := net.ListenPacket("udp4", listenAddr)
 			if err != nil {
-				log.Printf("UDP send error: %s\n", err)
-				return
+				return fmt.Errorf("listen %q error: %s", listenAddr, err)
 			}
-			bufUDPPool.Put(msg)
-		}()
+			defer ln.Close()
+
+			bufUDPPool = sync.Pool{
+				New: func() interface{} { return make([]byte, UDPPacketSize) },
+			}
+
+			for {
+				msg := bufUDPPool.Get().([]byte)
+				n, addr, err := ln.ReadFrom(msg[0:])
+				if err != nil {
+					log.Printf("UDP read error: %s", err)
+					continue
+				}
+
+				go func() {
+					n, err = ln.WriteTo(msg[:n], addr)
+					if err != nil {
+						log.Printf("UDP send error: %s\n", err)
+						return
+					}
+					bufUDPPool.Put(msg)
+				}()
+			}
+		})
 	}
 
 	return nil

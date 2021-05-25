@@ -22,7 +22,6 @@ import (
 	"io"
 	"log"
 	"net"
-	"os"
 	"os/signal"
 	"sync"
 	"syscall"
@@ -32,6 +31,7 @@ import (
 	"github.com/yuuki/connperf/limit"
 	"github.com/yuuki/connperf/sock"
 	"golang.org/x/sync/errgroup"
+	"golang.org/x/sys/unix"
 	"golang.org/x/xerrors"
 )
 
@@ -49,25 +49,27 @@ var serveCmd = &cobra.Command{
 			return err
 		}
 
+		ctx, stop := signal.NotifyContext(
+			context.Background(), unix.SIGINT, unix.SIGTERM)
+		defer stop()
+
 		cmd.Printf("Listening at %q ...\n", listenAddrs)
 		if serveProtocol == "tcp" || serveProtocol == "all" {
 			go func() {
-				if err := serveTCP(); err != nil {
+				if err := serveTCP(ctx); err != nil {
 					log.Println(err)
 				}
 			}()
 		}
 		if serveProtocol == "udp" || serveProtocol == "all" {
 			go func() {
-				if err := serveUDP(); err != nil {
+				if err := serveUDP(ctx); err != nil {
 					log.Println(err)
 				}
 			}()
 		}
 
-		sig := make(chan os.Signal, 1)
-		signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
-		ret := <-sig
+		ret := <-ctx.Done()
 		log.Printf("Received %v, Goodbye\n", ret)
 
 		return nil
@@ -84,16 +86,16 @@ func init() {
 	serveCmd.Flags().StringVarP(&serveProtocol, "protocol", "p", "all", "listening protocol ('tcp' or 'udp')")
 }
 
-func serveTCP() error {
+func serveTCP(ctx context.Context) error {
 	lc := net.ListenConfig{
 		Control: sock.GetTCPControlWithFastOpen(),
 	}
 
-	eg := errgroup.Group{}
+	eg, ctx := errgroup.WithContext(ctx)
 	for _, listenAddr := range listenAddrs {
 		listenAddr := listenAddr
 		eg.Go(func() error {
-			ln, err := lc.Listen(context.Background(), "tcp", listenAddr)
+			ln, err := lc.Listen(ctx, "tcp", listenAddr)
 			if err != nil {
 				return fmt.Errorf("listen %q error: %s", listenAddr, err)
 			}
@@ -173,13 +175,15 @@ const (
 
 var bufUDPPool sync.Pool
 
-func serveUDP() error {
-	eg := errgroup.Group{}
+func serveUDP(ctx context.Context) error {
+	lc := net.ListenConfig{}
+
+	eg, ctx := errgroup.WithContext(ctx)
 	for _, listenAddr := range listenAddrs {
 		listenAddr := listenAddr
 		eg.Go(func() error {
 			// create listening socket
-			ln, err := net.ListenPacket("udp4", listenAddr)
+			ln, err := lc.ListenPacket(ctx, "udp4", listenAddr)
 			if err != nil {
 				return fmt.Errorf("listen %q error: %s", listenAddr, err)
 			}

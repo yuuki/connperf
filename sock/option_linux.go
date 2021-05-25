@@ -52,6 +52,11 @@ func GetTCPControlWithFastOpen() func(network, address string, c syscall.RawConn
 	return func(network, _ string, c syscall.RawConn) error {
 		return c.Control(func(fd uintptr) {
 			var err error
+			// Enable REUSEDPORT on the server side
+			err = syscall.SetsockoptInt(int(fd), unix.SOL_SOCKET, unix.SO_REUSEPORT, 1)
+			if err != nil {
+				log.Println(err)
+			}
 			// Enable FASTOPEN on the client side
 			err = syscall.SetsockoptInt(int(fd), syscall.SOL_TCP, TCP_FASTOPEN_CONNECT, 1)
 			if err != nil {

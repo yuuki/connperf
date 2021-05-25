@@ -36,7 +36,8 @@ import (
 )
 
 var (
-	listenAddrs []string
+	listenAddrs   []string
+	serveProtocol string
 )
 
 // serveCmd represents the serve command
@@ -49,16 +50,20 @@ var serveCmd = &cobra.Command{
 		}
 
 		cmd.Printf("Listening at %q ...\n", listenAddrs)
-		go func() {
-			if err := serveTCP(); err != nil {
-				log.Println(err)
-			}
-		}()
-		go func() {
-			if err := serveUDP(); err != nil {
-				log.Println(err)
-			}
-		}()
+		if serveProtocol == "tcp" || serveProtocol == "all" {
+			go func() {
+				if err := serveTCP(); err != nil {
+					log.Println(err)
+				}
+			}()
+		}
+		if serveProtocol == "udp" || serveProtocol == "all" {
+			go func() {
+				if err := serveUDP(); err != nil {
+					log.Println(err)
+				}
+			}()
+		}
 
 		sig := make(chan os.Signal, 1)
 		signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
@@ -76,6 +81,7 @@ var serveMsgBuf = sync.Pool{
 func init() {
 	rootCmd.AddCommand(serveCmd)
 	serveCmd.Flags().StringSliceVarP(&listenAddrs, "listenAddr", "l", []string{"0.0.0.0:9100"}, "listening address")
+	serveCmd.Flags().StringVarP(&serveProtocol, "protocol", "p", "all", "listening protocol ('tcp' or 'udp')")
 }
 
 func serveTCP() error {

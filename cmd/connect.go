@@ -310,6 +310,10 @@ func connectPersistent(ctx context.Context, addrport string) error {
 		New: func() interface{} { return make([]byte, messageBytes) },
 	}
 
+	dialer := net.Dialer{
+		Control: sock.GetTCPControlWithFastOpen(),
+	}
+
 	cause := make(chan error, 1)
 	go func() {
 		wg := &sync.WaitGroup{}
@@ -318,7 +322,7 @@ func connectPersistent(ctx context.Context, addrport string) error {
 			go func() {
 				defer wg.Done()
 
-				conn, err := net.Dial("tcp", addrport)
+				conn, err := dialer.Dial("tcp", addrport)
 				if err != nil {
 					cause <- xerrors.Errorf("could not dial %q: %w", addrport, err)
 					cancel()

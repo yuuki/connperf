@@ -93,13 +93,11 @@ func serveTCP(ctx context.Context) error {
 
 	eg, ctx := errgroup.WithContext(ctx)
 	for _, listenAddr := range listenAddrs {
-		listenAddr := listenAddr
+		ln, err := lc.Listen(ctx, "tcp", listenAddr)
+		if err != nil {
+			return fmt.Errorf("listen %q error: %s", listenAddr, err)
+		}
 		eg.Go(func() error {
-			ln, err := lc.Listen(ctx, "tcp", listenAddr)
-			if err != nil {
-				return fmt.Errorf("listen %q error: %s", listenAddr, err)
-			}
-
 			for {
 				conn, err := ln.Accept()
 				if err != nil {
@@ -180,13 +178,12 @@ func serveUDP(ctx context.Context) error {
 
 	eg, ctx := errgroup.WithContext(ctx)
 	for _, listenAddr := range listenAddrs {
-		listenAddr := listenAddr
+		// create listening socket
+		ln, err := lc.ListenPacket(ctx, "udp4", listenAddr)
+		if err != nil {
+			return fmt.Errorf("listen %q error: %s", listenAddr, err)
+		}
 		eg.Go(func() error {
-			// create listening socket
-			ln, err := lc.ListenPacket(ctx, "udp4", listenAddr)
-			if err != nil {
-				return fmt.Errorf("listen %q error: %s", listenAddr, err)
-			}
 			defer ln.Close()
 
 			bufUDPPool = sync.Pool{

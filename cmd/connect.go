@@ -28,7 +28,6 @@ import (
 	"os"
 	"os/signal"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/rcrowley/go-metrics"
@@ -411,10 +410,6 @@ func connectEphemeral(ctx context.Context, addrport string) error {
 				err := measureTime(addrport, func() error {
 					conn, err := dialer.Dial("tcp", addrport)
 					if err != nil {
-						if errors.Is(err, syscall.ECONNREFUSED) {
-							log.Println(err)
-							return nil
-						}
 						return xerrors.Errorf("could not dial %q: %w", addrport, err)
 					}
 					if err := sock.SetLinger(conn); err != nil {
@@ -434,12 +429,9 @@ func connectEphemeral(ctx context.Context, addrport string) error {
 						return xerrors.Errorf("could not write %q: %w", addrport, err)
 					}
 					if _, err := conn.Read(msg); err != nil {
-						if errors.Is(err, syscall.ECONNRESET) {
-							log.Println(err)
-							return nil
-						}
 						return xerrors.Errorf("could not read %q: %w", addrport, err)
 					}
+
 					if err := conn.Close(); err != nil {
 						return xerrors.Errorf("could not close %q: %w", addrport, err)
 					}
@@ -495,12 +487,7 @@ func connectUDP(ctx context.Context, addrport string) error {
 					// create socket
 					conn, err := net.Dial("udp4", addrport)
 					if err != nil {
-						err = xerrors.Errorf("could not dial %q: %w", addrport, err)
-						if errors.Is(err, syscall.ECONNREFUSED) {
-							log.Println(err)
-							return nil
-						}
-						return err
+						return xerrors.Errorf("could not dial %q: %w", addrport, err)
 					}
 					defer conn.Close()
 
@@ -514,12 +501,7 @@ func connectUDP(ctx context.Context, addrport string) error {
 						return xerrors.Errorf("could not write %q: %w", addrport, err)
 					}
 					if _, err := conn.Read(msg); err != nil {
-						err := xerrors.Errorf("could not read %q: %w", addrport, err)
-						if errors.Is(err, syscall.ECONNRESET) {
-							log.Println(err)
-							return nil
-						}
-						return err
+						return xerrors.Errorf("could not read %q: %w", addrport, err)
 					}
 					return nil
 				})

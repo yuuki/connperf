@@ -36,8 +36,9 @@ import (
 )
 
 var (
-	listenAddrs   []string
-	serveProtocol string
+	listenAddrs     []string
+	listenAddrsFile string
+	serveProtocol   string
 )
 
 // serveCmd represents the serve command
@@ -52,6 +53,14 @@ var serveCmd = &cobra.Command{
 		ctx, stop := signal.NotifyContext(
 			context.Background(), unix.SIGINT, unix.SIGTERM)
 		defer stop()
+
+		if listenAddrsFile != "" {
+			addrs, err := getAddrsFromFile(listenAddrsFile)
+			if err != nil {
+				return err
+			}
+			listenAddrs = addrs
+		}
 
 		cmd.Printf("Listening at %q ...\n", listenAddrs)
 		if serveProtocol == "tcp" || serveProtocol == "all" {
@@ -84,6 +93,7 @@ func init() {
 	rootCmd.AddCommand(serveCmd)
 	serveCmd.Flags().StringSliceVarP(&listenAddrs, "listenAddr", "l", []string{"0.0.0.0:9100"}, "listening address")
 	serveCmd.Flags().StringVarP(&serveProtocol, "protocol", "p", "all", "listening protocol ('tcp' or 'udp')")
+	serveCmd.Flags().StringVar(&listenAddrsFile, "listen-addrs-file", "", "enable to pass a file including a pair of addresses and ports")
 }
 
 func serveTCP(ctx context.Context) error {

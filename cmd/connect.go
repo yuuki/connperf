@@ -29,6 +29,7 @@ import (
 	"os/signal"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/rcrowley/go-metrics"
@@ -436,6 +437,8 @@ func connectEphemeral(ctx context.Context, addrport string) error {
 					if err != nil {
 						return xerrors.Errorf("could not dial %q: %w", addrport, err)
 					}
+					defer conn.Close()
+
 					if err := sock.SetLinger(conn); err != nil {
 						return err
 					}
@@ -450,14 +453,20 @@ func connectEphemeral(ctx context.Context, addrport string) error {
 					}
 
 					if _, err := conn.Write(msg); err != nil {
-						return xerrors.Errorf("could not write %q: %w", addrport, err)
+						err := xerrors.Errorf("could not write %q: %w", addrport, err)
+						if errors.Is(err, syscall.EINPROGRESS) {
+							log.Println(err)
+							return nil
+						}
+						return err
 					}
 					if _, err := conn.Read(msg); err != nil {
-						return xerrors.Errorf("could not read %q: %w", addrport, err)
-					}
-
-					if err := conn.Close(); err != nil {
-						return xerrors.Errorf("could not close %q: %w", addrport, err)
+						err := xerrors.Errorf("could not read %q: %w", addrport, err)
+						if errors.Is(err, syscall.ECONNRESET) {
+							log.Println(err)
+							return nil
+						}
+						return err
 					}
 
 					return nil

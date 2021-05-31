@@ -243,7 +243,7 @@ func runConnectCmd(cmd *cobra.Command, args []string) error {
 			return err
 		}
 	}
-	printReport(cmd.OutOrStdout(), args)
+	printReport(cmd.OutOrStdout(), addrs)
 
 	return nil
 }

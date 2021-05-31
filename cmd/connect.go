@@ -27,6 +27,7 @@ import (
 	_ "net/http/pprof"
 	"os"
 	"os/signal"
+	"strings"
 	"sync"
 	"time"
 
@@ -57,6 +58,7 @@ var (
 	mergeResultsEachHost bool
 	pprof                bool
 	pprofAddr            string
+	addrsFile            bool
 )
 
 // connectCmd represents the connect command
@@ -80,6 +82,10 @@ var connectCmd = &cobra.Command{
 
 		if len(args) < 1 {
 			return fmt.Errorf("required addresses")
+		}
+
+		if addrsFile && len(args) != 1 {
+			return fmt.Errorf("the number of addresses file must be one")
 		}
 
 		if mergeResultsEachHost && !showOnlyResults {
@@ -115,6 +121,7 @@ func init() {
 	connectCmd.Flags().Int32Var(&messageBytes, "message-bytes", 64, "TCP/UDP message size (bytes)")
 	connectCmd.Flags().BoolVar(&showOnlyResults, "show-only-results", false, "print only results of measurement stats")
 	connectCmd.Flags().BoolVar(&mergeResultsEachHost, "merge-results-each-host", false, "merge results of each host (with --show-only-results)")
+	connectCmd.Flags().BoolVar(&addrsFile, "addrs-file", false, "enable to pass a file including a pair of addresses and ports to an argument")
 
 	connectCmd.Flags().BoolVar(&pprof, "enable-pprof", false, "a flag of pprof")
 	connectCmd.Flags().StringVar(&pprofAddr, "pporf", "localhost:6060", "pprof listening address:port")
@@ -127,6 +134,14 @@ func setPprofServer() {
 	go func() {
 		log.Println(http.ListenAndServe(pprofAddr, nil))
 	}()
+}
+
+func getAddrsFromFile(path string) ([]string, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return []string{}, err
+	}
+	return strings.Fields(string(data)), nil
 }
 
 func waitLim(ctx context.Context, rl ratelimit.Limiter) error {
@@ -187,12 +202,21 @@ func runConnectCmd(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	addrs := args
+	if addrsFile {
+		var err error
+		addrs, err = getAddrsFromFile(args[0])
+		if err != nil {
+			return err
+		}
+	}
+
 	printStatHeader(cmd.OutOrStdout())
 
 	done := make(chan error)
 	go func() {
 		eg, ctx := errgroup.WithContext(ctx)
-		for _, addr := range args {
+		for _, addr := range addrs {
 			addr := addr
 			eg.Go(func() error {
 				if showOnlyResults {
@@ -219,7 +243,7 @@ func runConnectCmd(cmd *cobra.Command, args []string) error {
 			return err
 		}
 	}
-	printReport(cmd.OutOrStdout(), args)
+	printReport(cmd.OutOrStdout(), addrs)
 
 	return nil
 }

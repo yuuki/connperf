@@ -435,7 +435,12 @@ func connectEphemeral(ctx context.Context, addrport string) error {
 				err := measureTime(addrport, func() error {
 					conn, err := dialer.Dial("tcp", addrport)
 					if err != nil {
-						return xerrors.Errorf("could not dial %q: %w", addrport, err)
+						err := xerrors.Errorf("could not dial %q: %w", addrport, err)
+						if errors.Is(err, syscall.ETIMEDOUT) {
+							log.Println(err)
+							return nil
+						}
+						return err
 					}
 					defer conn.Close()
 

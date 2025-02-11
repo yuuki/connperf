@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+	http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -21,7 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"net"
 	"net/http"
 	_ "net/http/pprof"
@@ -36,7 +36,6 @@ import (
 	"github.com/spf13/cobra"
 	"go.uber.org/ratelimit"
 	"golang.org/x/sync/errgroup"
-	"golang.org/x/xerrors"
 
 	"github.com/yuuki/connperf/limit"
 	"github.com/yuuki/connperf/sock"
@@ -68,15 +67,13 @@ var connectCmd = &cobra.Command{
 	Short: "connect connects to a port where 'serve' listens",
 	Args: func(cmd *cobra.Command, args []string) error {
 		switch connectFlavor {
-		case flavorPersistent:
-		case flavorEphemeral:
+		case flavorPersistent, flavorEphemeral:
 		default:
 			return fmt.Errorf("unexpected connect flavor %q", connectFlavor)
 		}
 
 		switch protocol {
-		case "tcp":
-		case "udp":
+		case "tcp", "udp":
 		default:
 			return fmt.Errorf("unexpected protocol %q", protocol)
 		}
@@ -95,27 +92,22 @@ var connectCmd = &cobra.Command{
 
 		return nil
 	},
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		setPprofServer()
-		if err := runConnectCmd(cmd, args); err != nil {
-			cmd.PrintErrf("%v\n", err)
-		}
+		return runConnectCmd(cmd, args)
 	},
 }
 
 func init() {
-	log.SetOutput(connectCmd.OutOrStderr())
-
 	rootCmd.AddCommand(connectCmd)
 
 	connectCmd.Flags().StringVarP(&protocol, "proto", "p", "tcp", "protocol (tcp or udp)")
 	i := connectCmd.Flags().IntP("interval", "i", 5, "interval for printing stats")
 	intervalStats = time.Duration(*i) * time.Second
 	connectCmd.Flags().StringVarP(&connectFlavor, "flavor", "f", flavorPersistent,
-		fmt.Sprintf("connect behavior type '%s' or '%s'", flavorPersistent, flavorEphemeral),
-	)
+		fmt.Sprintf("connect behavior type '%s' or '%s'", flavorPersistent, flavorEphemeral))
 	connectCmd.Flags().Int32VarP(&connections, "connections", "c", 10,
-		fmt.Sprintf("Number of concurrent connections to keep (only for '%s')l", flavorPersistent))
+		fmt.Sprintf("Number of concurrent connections to keep (only for '%s')", flavorPersistent))
 	connectCmd.Flags().Int32VarP(&connectRate, "rate", "r", 100,
 		fmt.Sprintf("New connections throughput (/s) (only for '%s')", flavorEphemeral))
 	connectCmd.Flags().DurationVarP(&duration, "duration", "d", 10*time.Second, "measurement period")
@@ -124,8 +116,8 @@ func init() {
 	connectCmd.Flags().BoolVar(&mergeResultsEachHost, "merge-results-each-host", false, "merge results of each host (with --show-only-results)")
 	connectCmd.Flags().BoolVar(&addrsFile, "addrs-file", false, "enable to pass a file including a pair of addresses and ports to an argument")
 
-	connectCmd.Flags().BoolVar(&pprof, "enable-pprof", false, "a flag of pprof")
-	connectCmd.Flags().StringVar(&pprofAddr, "pporf", "localhost:6060", "pprof listening address:port")
+	connectCmd.Flags().BoolVar(&pprof, "enable-pprof", false, "enable pprof profiling")
+	connectCmd.Flags().StringVar(&pprofAddr, "pprof-addr", "localhost:6060", "pprof listening address:port")
 }
 
 func setPprofServer() {
@@ -133,37 +125,36 @@ func setPprofServer() {
 		return
 	}
 	go func() {
-		log.Println(http.ListenAndServe(pprofAddr, nil))
+		if err := http.ListenAndServe(pprofAddr, nil); err != nil {
+			slog.Error("pprof server error", "error", err)
+		}
 	}()
 }
 
 func getAddrsFromFile(path string) ([]string, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return []string{}, err
+		return nil, fmt.Errorf("reading addresses file: %w", err)
 	}
 	return strings.Fields(string(data)), nil
 }
 
 func waitLim(ctx context.Context, rl ratelimit.Limiter) error {
-	// Check if ctx is already cancelled
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
 	default:
-	}
-
-	done := make(chan struct{})
-	go func() {
-		rl.Take()
-		done <- struct{}{}
-	}()
-	select {
-	case <-done:
-		return nil
-	case <-ctx.Done():
-		// Context was canceled before Take() task could be processed.
-		return ctx.Err()
+		done := make(chan struct{})
+		go func() {
+			rl.Take()
+			close(done)
+		}()
+		select {
+		case <-done:
+			return nil
+		case <-ctx.Done():
+			return ctx.Err()
+		}
 	}
 }
 
@@ -196,11 +187,11 @@ func printReport(w io.Writer, addrs []string) {
 }
 
 func runConnectCmd(cmd *cobra.Command, args []string) error {
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, os.Kill)
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
 	if err := limit.SetRLimitNoFile(); err != nil {
-		return err
+		return fmt.Errorf("setting file limit: %w", err)
 	}
 
 	addrs := args
@@ -214,38 +205,23 @@ func runConnectCmd(cmd *cobra.Command, args []string) error {
 
 	printStatHeader(cmd.OutOrStdout())
 
-	done := make(chan error)
-	go func() {
-		eg, ctx := errgroup.WithContext(ctx)
-		for _, addr := range addrs {
-			addr := addr
-			eg.Go(func() error {
-				if showOnlyResults {
-					if err := connectAddr(ctx, addr); err != nil {
-						return err
-					}
-				} else {
-					runStatLinePrinter(ctx, cmd.OutOrStdout(), addr)
-					if err := connectAddr(ctx, addr); err != nil {
-						return err
-					}
-				}
-				return nil
-			})
-		}
-		done <- eg.Wait()
-	}()
-
-	select {
-	case <-ctx.Done():
-		break
-	case err := <-done:
-		if err != nil {
-			return err
-		}
+	eg, ctx := errgroup.WithContext(ctx)
+	for _, addr := range addrs {
+		addr := addr // Create new variable for closure
+		eg.Go(func() error {
+			if showOnlyResults {
+				return connectAddr(ctx, addr)
+			}
+			runStatLinePrinter(ctx, cmd.OutOrStdout(), addr)
+			return connectAddr(ctx, addr)
+		})
 	}
-	printReport(cmd.OutOrStdout(), addrs)
 
+	if err := eg.Wait(); err != nil {
+		return fmt.Errorf("connection error: %w", err)
+	}
+
+	printReport(cmd.OutOrStdout(), addrs)
 	return nil
 }
 
@@ -254,32 +230,26 @@ func connectAddr(ctx context.Context, addr string) error {
 	case "tcp":
 		switch connectFlavor {
 		case flavorPersistent:
-			if err := connectPersistent(ctx, addr); err != nil {
-				return err
-			}
+			return connectPersistent(ctx, addr)
 		case flavorEphemeral:
-			if err := connectEphemeral(ctx, addr); err != nil {
-				return err
-			}
+			return connectEphemeral(ctx, addr)
 		}
 	case "udp":
-		if err := connectUDP(ctx, addr); err != nil {
-			return err
-		}
+		return connectUDP(ctx, addr)
 	}
-
-	return nil
+	return fmt.Errorf("invalid protocol or flavor combination")
 }
 
 func toMicroseconds(n int64) int64 {
 	return time.Duration(n).Microseconds()
 }
+
 func toMicrosecondsf(n float64) int64 {
 	return time.Duration(n).Microseconds()
 }
 
 func printStatHeader(w io.Writer) {
-	fmt.Printf("%-20s %-10s %-15s %-15s %-15s %-15s %-15s %-15s %-10s\n",
+	fmt.Fprintf(w, "%-20s %-10s %-15s %-15s %-15s %-15s %-15s %-15s %-10s\n",
 		"PEER", "CNT", "LAT_MAX(µs)", "LAT_MIN(µs)", "LAT_MEAN(µs)",
 		"LAT_90p(µs)", "LAT_95p(µs)", "LAT_99p(µs)", "RATE(/s)")
 }
@@ -300,15 +270,16 @@ func printStatLine(w io.Writer, addr string, stat metrics.Timer) {
 
 func runStatLinePrinter(ctx context.Context, w io.Writer, addr string) {
 	go func() {
-		t := time.NewTicker(intervalStats)
-		defer t.Stop()
+		ticker := time.NewTicker(intervalStats)
+		defer ticker.Stop()
+
 		for {
 			select {
 			case <-ctx.Done():
 				return
-			case <-t.C:
-				is := getOrRegisterTimer("tick.latency", addr)
-				printStatLine(w, addr, is)
+			case <-ticker.C:
+				ts := getOrRegisterTimer("tick.latency", addr)
+				printStatLine(w, addr, ts)
 				unregisterTimer("tick.latency", addr)
 			}
 		}
@@ -322,8 +293,9 @@ func measureTime(addr string, f func() error) error {
 	if err := f(); err != nil {
 		return err
 	}
-	ts.UpdateSince(start)
-	is.UpdateSince(start)
+	elapsed := time.Since(start)
+	ts.Update(elapsed)
+	is.Update(elapsed)
 	return nil
 }
 
@@ -339,67 +311,49 @@ func connectPersistent(ctx context.Context, addrport string) error {
 		Control: sock.GetTCPControlWithFastOpen(),
 	}
 
-	cause := make(chan error, 1)
-	go func() {
-		wg := &sync.WaitGroup{}
-		for i := 0; i < int(connections); i++ {
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
+	eg, ctx := errgroup.WithContext(ctx)
+	for i := 0; i < int(connections); i++ {
+		eg.Go(func() error {
+			conn, err := dialer.Dial("tcp", addrport)
+			if err != nil {
+				return fmt.Errorf("dialing %q: %w", addrport, err)
+			}
+			defer conn.Close()
 
-				conn, err := dialer.Dial("tcp", addrport)
-				if err != nil {
-					cause <- xerrors.Errorf("could not dial %q: %w", addrport, err)
-					cancel()
-					return
-				}
-				defer conn.Close()
+			msgsTotal := int64(connectRate) * int64(duration.Seconds())
+			limiter := ratelimit.New(int(connectRate))
 
-				msgsTotal := int64(connectRate) * int64(duration.Seconds())
-				limiter := ratelimit.New(int(connectRate))
-
-				for j := int64(0); j < msgsTotal; j++ {
-					if err := waitLim(ctx, limiter); err != nil {
-						if errors.Is(err, context.Canceled) ||
-							errors.Is(err, context.DeadlineExceeded) {
-							break
-						}
-						continue
-					}
-
-					err = measureTime(addrport, func() error {
-						msg := bufTCPPool.Get().([]byte)
-						defer func() { bufTCPPool.Put(msg) }()
-						if n, err := rand.Read(msg); err != nil {
-							return xerrors.Errorf("could not read random values (length:%d): %w", n, err)
-						}
-
-						if _, err := conn.Write(msg); err != nil {
-							return xerrors.Errorf("could not write: %w", err)
-						}
-						if _, err := conn.Read(msg); err != nil {
-							return xerrors.Errorf("could not read: %w", err)
-						}
+			for j := int64(0); j < msgsTotal; j++ {
+				if err := waitLim(ctx, limiter); err != nil {
+					if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 						return nil
-					})
-					if err != nil {
-						cause <- err
-						cancel()
 					}
+					continue
 				}
-			}()
-		}
-		wg.Wait()
-		close(cause)
-	}()
 
-	select {
-	case <-ctx.Done():
-	case e := <-cause:
-		return e
+				if err := measureTime(addrport, func() error {
+					msg := bufTCPPool.Get().([]byte)
+					defer bufTCPPool.Put(msg)
+
+					if n, err := rand.Read(msg); err != nil {
+						return fmt.Errorf("generating random data (length:%d): %w", n, err)
+					}
+
+					if _, err := conn.Write(msg); err != nil {
+						return fmt.Errorf("writing to connection: %w", err)
+					}
+					if _, err := conn.Read(msg); err != nil {
+						return fmt.Errorf("reading from connection: %w", err)
+					}
+					return nil
+				}); err != nil {
+					return err
+				}
+			}
+			return nil
+		})
 	}
-
-	return nil
+	return eg.Wait()
 }
 
 func connectEphemeral(ctx context.Context, addrport string) error {
@@ -417,82 +371,62 @@ func connectEphemeral(ctx context.Context, addrport string) error {
 	connTotal := int64(connectRate) * int64(duration.Seconds())
 	limiter := ratelimit.New(int(connectRate))
 
-	cause := make(chan error, 1)
-	go func() {
-		wg := sync.WaitGroup{}
-		for i := int64(0); i < connTotal; i++ {
-			if err := waitLim(ctx, limiter); err != nil {
-				if errors.Is(err, context.Canceled) ||
-					errors.Is(err, context.DeadlineExceeded) {
-					break
-				}
-				continue
+	eg, ctx := errgroup.WithContext(ctx)
+	for i := int64(0); i < connTotal; i++ {
+		if err := waitLim(ctx, limiter); err != nil {
+			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+				break
 			}
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				// start timer of measuring latency
-				err := measureTime(addrport, func() error {
-					conn, err := dialer.Dial("tcp", addrport)
-					if err != nil {
-						err := xerrors.Errorf("could not dial %q: %w", addrport, err)
-						if errors.Is(err, syscall.ETIMEDOUT) {
-							log.Println(err)
-							return nil
-						}
-						return err
-					}
-					defer conn.Close()
-
-					if err := sock.SetLinger(conn); err != nil {
-						return err
-					}
-					if err := sock.SetQuickAck(conn); err != nil {
-						return err
-					}
-
-					msg := bufTCPPool.Get().([]byte)
-					defer func() { bufTCPPool.Put(msg) }()
-					if n, err := rand.Read(msg); err != nil {
-						return xerrors.Errorf("could not read random values (length:%d): %w", n, err)
-					}
-
-					if _, err := conn.Write(msg); err != nil {
-						err := xerrors.Errorf("could not write %q: %w", addrport, err)
-						if errors.Is(err, syscall.EINPROGRESS) {
-							log.Println(err)
-							return nil
-						}
-						return err
-					}
-					if _, err := conn.Read(msg); err != nil {
-						err := xerrors.Errorf("could not read %q: %w", addrport, err)
-						if errors.Is(err, syscall.ECONNRESET) {
-							log.Println(err)
-							return nil
-						}
-						return err
-					}
-
-					return nil
-				})
-				if err != nil {
-					cause <- err
-					cancel()
-				}
-			}()
+			continue
 		}
-		wg.Wait()
-		close(cause)
-	}()
 
-	select {
-	case <-ctx.Done():
-		break
-	case e := <-cause:
-		return e
+		eg.Go(func() error {
+			return measureTime(addrport, func() error {
+				conn, err := dialer.Dial("tcp", addrport)
+				if err != nil {
+					if errors.Is(err, syscall.ETIMEDOUT) {
+						slog.Warn("connection timeout", "addr", addrport)
+						return nil
+					}
+					return fmt.Errorf("dialing %q: %w", addrport, err)
+				}
+				defer conn.Close()
+
+				if err := sock.SetLinger(conn); err != nil {
+					return fmt.Errorf("setting linger: %w", err)
+				}
+				if err := sock.SetQuickAck(conn); err != nil {
+					return fmt.Errorf("setting quick ack: %w", err)
+				}
+
+				msg := bufTCPPool.Get().([]byte)
+				defer bufTCPPool.Put(msg)
+
+				if n, err := rand.Read(msg); err != nil {
+					return fmt.Errorf("generating random data (length:%d): %w", n, err)
+				}
+
+				if _, err := conn.Write(msg); err != nil {
+					if errors.Is(err, syscall.EINPROGRESS) {
+						slog.Warn("write in progress", "addr", addrport)
+						return nil
+					}
+					return fmt.Errorf("writing to connection: %w", err)
+				}
+
+				if _, err := conn.Read(msg); err != nil {
+					if errors.Is(err, syscall.ECONNRESET) {
+						slog.Warn("connection reset", "addr", addrport)
+						return nil
+					}
+					return fmt.Errorf("reading from connection: %w", err)
+				}
+
+				return nil
+			})
+		})
 	}
-	return nil
+	return eg.Wait()
 }
 
 func connectUDP(ctx context.Context, addrport string) error {
@@ -506,59 +440,41 @@ func connectUDP(ctx context.Context, addrport string) error {
 		New: func() interface{} { return make([]byte, messageBytes) },
 	}
 
-	cause := make(chan error, 1)
-	go func() {
-		wg := sync.WaitGroup{}
-		for i := int64(0); i < connTotal; i++ {
-			if err := waitLim(ctx, limiter); err != nil {
-				if errors.Is(err, context.Canceled) ||
-					errors.Is(err, context.DeadlineExceeded) {
-					break
-				}
-				continue
+	eg, ctx := errgroup.WithContext(ctx)
+	for i := int64(0); i < connTotal; i++ {
+		if err := waitLim(ctx, limiter); err != nil {
+			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+				break
 			}
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				// start timer of measuring latency
-				err := measureTime(addrport, func() error {
-					// create socket
-					conn, err := net.Dial("udp4", addrport)
-					if err != nil {
-						return xerrors.Errorf("could not dial %q: %w", addrport, err)
-					}
-					defer conn.Close()
-
-					msg := bufUDPPool.Get().([]byte)
-					defer func() { bufUDPPool.Put(msg) }()
-					if n, err := rand.Read(msg); err != nil {
-						return xerrors.Errorf("could not read random values (length:%d): %w", n, err)
-					}
-
-					if _, err := conn.Write(msg); err != nil {
-						return xerrors.Errorf("could not write %q: %w", addrport, err)
-					}
-					if _, err := conn.Read(msg); err != nil {
-						return xerrors.Errorf("could not read %q: %w", addrport, err)
-					}
-					return nil
-				})
-				if err != nil {
-					cause <- err
-					cancel()
-				}
-			}()
+			continue
 		}
-		wg.Wait()
-		close(cause)
-	}()
 
-	select {
-	case <-ctx.Done():
-		break
-	case e := <-cause:
-		return e
+		eg.Go(func() error {
+			return measureTime(addrport, func() error {
+				conn, err := net.Dial("udp4", addrport)
+				if err != nil {
+					return fmt.Errorf("dialing UDP %q: %w", addrport, err)
+				}
+				defer conn.Close()
+
+				msg := bufUDPPool.Get().([]byte)
+				defer bufUDPPool.Put(msg)
+
+				if n, err := rand.Read(msg); err != nil {
+					return fmt.Errorf("generating random data (length:%d): %w", n, err)
+				}
+
+				if _, err := conn.Write(msg); err != nil {
+					return fmt.Errorf("writing to UDP connection: %w", err)
+				}
+
+				if _, err := conn.Read(msg); err != nil {
+					return fmt.Errorf("reading from UDP connection: %w", err)
+				}
+
+				return nil
+			})
+		})
 	}
-
-	return nil
+	return eg.Wait()
 }

@@ -62,3 +62,7 @@ The project includes test files (cmd/serve_test.go). When adding new functionali
 - Server gracefully handles signals (SIGINT, SIGTERM) for clean shutdown
 - Error handling includes specific logic for network timeouts and connection resets
 - Build uses Go modules with go 1.24.4
+
+## Additional Guidance
+
+- Place all go files into top-level directory

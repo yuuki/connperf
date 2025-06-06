@@ -39,7 +39,11 @@ func TestE2ETCPServerClientEcho(t *testing.T) {
 	serverCtx, serverCancel := context.WithCancel(ctx)
 	go func() {
 		defer serverWg.Done()
-		if err := serveTCP(serverCtx); err != nil {
+		server := NewServer(ServerConfig{
+			ListenAddrs: []string{addr},
+			Protocol: "tcp",
+		})
+		if err := server.serveTCP(serverCtx); err != nil {
 			t.Logf("Server completed: %v", err)
 		}
 	}()
@@ -119,7 +123,11 @@ func TestE2EUDPServerClientEcho(t *testing.T) {
 	serverCtx, serverCancel := context.WithCancel(ctx)
 	go func() {
 		defer serverWg.Done()
-		if err := serveUDP(serverCtx); err != nil {
+		server := NewServer(ServerConfig{
+			ListenAddrs: []string{addr},
+			Protocol: "udp",
+		})
+		if err := server.serveUDP(serverCtx); err != nil {
 			t.Logf("UDP Server completed: %v", err)
 		}
 	}()
@@ -195,7 +203,11 @@ func TestE2ETCPPersistentMode(t *testing.T) {
 	serverCtx, serverCancel := context.WithCancel(ctx)
 	go func() {
 		defer serverWg.Done()
-		if err := serveTCP(serverCtx); err != nil {
+		server := NewServer(ServerConfig{
+			ListenAddrs: []string{addr},
+			Protocol: "tcp",
+		})
+		if err := server.serveTCP(serverCtx); err != nil {
 			t.Logf("Persistent mode server completed: %v", err)
 		}
 	}()
@@ -262,7 +274,11 @@ func TestE2ETCPEphemeralMode(t *testing.T) {
 	serverCtx, serverCancel := context.WithCancel(ctx)
 	go func() {
 		defer serverWg.Done()
-		if err := serveTCP(serverCtx); err != nil {
+		server := NewServer(ServerConfig{
+			ListenAddrs: []string{addr},
+			Protocol: "tcp",
+		})
+		if err := server.serveTCP(serverCtx); err != nil {
 			t.Logf("Ephemeral mode server completed: %v", err)
 		}
 	}()
@@ -330,7 +346,11 @@ func TestE2EMultipleAddresses(t *testing.T) {
 	serverCtx, serverCancel := context.WithCancel(ctx)
 	go func() {
 		defer serverWg.Done()
-		if err := serveTCP(serverCtx); err != nil {
+		server := NewServer(ServerConfig{
+			ListenAddrs: listenAddrs,
+			Protocol: "tcp",
+		})
+		if err := server.serveTCP(serverCtx); err != nil {
 			t.Logf("Multi-address servers completed: %v", err)
 		}
 	}()
@@ -402,7 +422,11 @@ func TestE2EMergedResults(t *testing.T) {
 	serverCtx, serverCancel := context.WithCancel(ctx)
 	go func() {
 		defer serverWg.Done()
-		if err := serveTCP(serverCtx); err != nil {
+		server := NewServer(ServerConfig{
+			ListenAddrs: listenAddrs,
+			Protocol: "tcp",
+		})
+		if err := server.serveTCP(serverCtx); err != nil {
 			t.Logf("Merged results servers completed: %v", err)
 		}
 	}()
@@ -469,7 +493,11 @@ func TestE2ELargeMessageSize(t *testing.T) {
 	serverCtx, serverCancel := context.WithCancel(ctx)
 	go func() {
 		defer serverWg.Done()
-		if err := serveTCP(serverCtx); err != nil {
+		server := NewServer(ServerConfig{
+			ListenAddrs: []string{addr},
+			Protocol: "tcp",
+		})
+		if err := server.serveTCP(serverCtx); err != nil {
 			t.Logf("Large message server completed: %v", err)
 		}
 	}()
@@ -535,7 +563,11 @@ func TestE2EServerShutdown(t *testing.T) {
 	serverCtx, serverCancel := context.WithCancel(ctx)
 	go func() {
 		defer serverWg.Done()
-		if err := serveTCP(serverCtx); err != nil {
+		server := NewServer(ServerConfig{
+			ListenAddrs: []string{addr},
+			Protocol: "tcp",
+		})
+		if err := server.serveTCP(serverCtx); err != nil {
 			t.Logf("Shutdown test server completed: %v", err)
 		}
 	}()
@@ -644,14 +676,22 @@ func TestE2EAllProtocols(t *testing.T) {
 	// Start both TCP and UDP servers
 	go func() {
 		defer serverWg.Done()
-		if err := serveTCP(serverCtx); err != nil {
+		server := NewServer(ServerConfig{
+			ListenAddrs: []string{addr},
+			Protocol: "tcp",
+		})
+		if err := server.serveTCP(serverCtx); err != nil {
 			t.Logf("All protocols TCP server completed: %v", err)
 		}
 	}()
 	
 	go func() {
 		defer serverWg.Done()
-		if err := serveUDP(serverCtx); err != nil {
+		server := NewServer(ServerConfig{
+			ListenAddrs: []string{addr},
+			Protocol: "udp",
+		})
+		if err := server.serveUDP(serverCtx); err != nil {
 			t.Logf("All protocols UDP server completed: %v", err)
 		}
 	}()

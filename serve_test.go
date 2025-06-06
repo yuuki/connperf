@@ -25,7 +25,11 @@ func TestServeTCP(t *testing.T) {
 	serverCtx, serverCancel := context.WithCancel(ctx)
 	go func() {
 		defer wg.Done()
-		serveTCP(serverCtx)
+		server := NewServer(ServerConfig{
+			ListenAddrs: listenAddrs,
+			Protocol: "tcp",
+		})
+		server.serveTCP(serverCtx)
 	}()
 
 	time.Sleep(300 * time.Millisecond)
@@ -90,7 +94,11 @@ func TestServeUDP(t *testing.T) {
 	serverCtx, serverCancel := context.WithCancel(ctx)
 	go func() {
 		defer wg.Done()
-		serveUDP(serverCtx)
+		server := NewServer(ServerConfig{
+			ListenAddrs: listenAddrs,
+			Protocol: "udp",
+		})
+		server.serveUDP(serverCtx)
 	}()
 
 	time.Sleep(300 * time.Millisecond)
@@ -155,7 +163,11 @@ func TestTCPEchoMultipleConnections(t *testing.T) {
 	serverCtx, serverCancel := context.WithCancel(ctx)
 	go func() {
 		defer wg.Done()
-		serveTCP(serverCtx)
+		server := NewServer(ServerConfig{
+			ListenAddrs: listenAddrs,
+			Protocol: "tcp",
+		})
+		server.serveTCP(serverCtx)
 	}()
 
 	time.Sleep(300 * time.Millisecond)
@@ -224,7 +236,11 @@ func TestUDPEchoMultiplePackets(t *testing.T) {
 	serverCtx, serverCancel := context.WithCancel(ctx)
 	go func() {
 		defer wg.Done()
-		serveUDP(serverCtx)
+		server := NewServer(ServerConfig{
+			ListenAddrs: listenAddrs,
+			Protocol: "udp",
+		})
+		server.serveUDP(serverCtx)
 	}()
 
 	time.Sleep(300 * time.Millisecond)

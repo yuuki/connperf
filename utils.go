@@ -1,6 +1,9 @@
 package main
 
 import (
+	"fmt"
+	"os"
+	"strings"
 	"syscall"
 
 	"golang.org/x/xerrors"
@@ -24,4 +27,12 @@ func SetRLimitNoFile() error {
 	}
 
 	return nil
+}
+
+func getAddrsFromFile(path string) ([]string, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("reading addresses file: %w", err)
+	}
+	return strings.Fields(string(data)), nil
 }

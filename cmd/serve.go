@@ -24,7 +24,6 @@ import (
 	"net"
 	"os/signal"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -119,42 +118,49 @@ func serveTCP(ctx context.Context) error {
 			}
 			defer ln.Close()
 
+			// Close listener when context is done
+			go func() {
+				<-ctx.Done()
+				ln.Close()
+			}()
+
 			for {
-				select {
-				case <-ctx.Done():
-					return nil
-				default:
-					conn, err := ln.Accept()
-					if err != nil {
-						var ne net.Error
-						if errors.As(err, &ne) && ne.Temporary() {
-							slog.Warn("temporary error accepting TCP connection",
-								"addr", ln.Addr(),
-								"error", err)
-							time.Sleep(time.Second)
-							continue
-						}
-						if errors.Is(err, net.ErrClosed) {
-							return nil
-						}
-						return fmt.Errorf("accepting TCP connection: %w", err)
+				conn, err := ln.Accept()
+				if err != nil {
+					select {
+					case <-ctx.Done():
+						return nil
+					default:
 					}
 
-					if err := sock.SetQuickAck(conn); err != nil {
-						return fmt.Errorf("setting quick ack: %w", err)
+					var ne net.Error
+					if errors.As(err, &ne) && ne.Temporary() {
+						slog.Warn("temporary error accepting TCP connection",
+							"addr", ln.Addr(),
+							"error", err)
+						time.Sleep(time.Second)
+						continue
 					}
-					if err := sock.SetLinger(conn); err != nil {
-						return fmt.Errorf("setting linger: %w", err)
+					if errors.Is(err, net.ErrClosed) {
+						return nil
 					}
-
-					go func() {
-						if err := handleConnection(conn); err != nil {
-							slog.Error("connection handler error",
-								"remote_addr", conn.RemoteAddr(),
-								"error", err)
-						}
-					}()
+					return fmt.Errorf("accepting TCP connection: %w", err)
 				}
+
+				if err := sock.SetQuickAck(conn); err != nil {
+					return fmt.Errorf("setting quick ack: %w", err)
+				}
+				if err := sock.SetLinger(conn); err != nil {
+					return fmt.Errorf("setting linger: %w", err)
+				}
+
+				go func() {
+					if err := handleConnection(conn); err != nil {
+						slog.Error("connection handler error",
+							"remote_addr", conn.RemoteAddr(),
+							"error", err)
+					}
+				}()
 			}
 		})
 	}
@@ -170,23 +176,21 @@ func handleConnection(conn net.Conn) error {
 	for {
 		n, err := conn.Read(buf)
 		if err != nil {
-			var ne net.Error
-			if errors.As(err, &ne) && ne.Temporary() {
+			if err == io.EOF {
+				return nil
+			}
+			if ne, ok := err.(net.Error); ok && ne.Timeout() {
 				continue
-			}
-			if errors.Is(err, io.EOF) {
-				return nil
-			}
-			if errors.Is(err, syscall.ECONNRESET) {
-				return nil
 			}
 			return fmt.Errorf("reading from %q: %w", conn.RemoteAddr(), err)
 		}
 
 		if _, err := conn.Write(buf[:n]); err != nil {
-			var ne net.Error
-			if errors.As(err, &ne) && ne.Temporary() {
+			if err == io.EOF {
 				return nil
+			}
+			if ne, ok := err.(net.Error); ok && ne.Timeout() {
+				continue
 			}
 			return fmt.Errorf("writing to %q: %w", conn.RemoteAddr(), err)
 		}
@@ -212,28 +216,34 @@ func serveUDP(ctx context.Context) error {
 			}
 			defer ln.Close()
 
-			for {
-				select {
-				case <-ctx.Done():
-					return nil
-				default:
-					msg := bufUDPPool.Get().([]byte)
-					n, remoteAddr, err := ln.ReadFrom(msg)
-					if err != nil {
-						bufUDPPool.Put(msg)
-						slog.Error("UDP read error", "error", err)
-						continue
-					}
+			// Close listener when context is done
+			go func() {
+				<-ctx.Done()
+				ln.Close()
+			}()
 
-					go func() {
-						defer bufUDPPool.Put(msg)
-						if _, err = ln.WriteTo(msg[:n], remoteAddr); err != nil {
-							slog.Error("UDP write error",
-								"remote_addr", remoteAddr,
-								"error", err)
-						}
-					}()
+			for {
+				msg := bufUDPPool.Get().([]byte)
+				n, remoteAddr, err := ln.ReadFrom(msg)
+				if err != nil {
+					bufUDPPool.Put(msg)
+					select {
+					case <-ctx.Done():
+						return nil
+					default:
+					}
+					slog.Error("UDP read error", "error", err)
+					continue
 				}
+
+				go func() {
+					defer bufUDPPool.Put(msg)
+					if _, err = ln.WriteTo(msg[:n], remoteAddr); err != nil {
+						slog.Error("UDP write error",
+							"remote_addr", remoteAddr,
+							"error", err)
+					}
+				}()
 			}
 		})
 	}

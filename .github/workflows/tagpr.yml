@@ -10,9 +10,13 @@ jobs:
       pull-requests: write
       issues: write
     steps:
-    - uses: actions/checkout@v4
-      with:
-        persist-credentials: true
-    - uses: Songmu/tagpr@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: Songmu/tagpr@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - uses: ./.github/actions/release.yml
+        with:
+          tag: ${{ steps.tagpr.outputs.tag }}
+        if: "steps.tagpr.outputs.tag != ''"

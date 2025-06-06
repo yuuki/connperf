@@ -1,8 +1,6 @@
 module github.com/yuuki/connperf
 
-go 1.23.0
-
-toolchain go1.24.4
+go 1.24.4
 
 require (
 	github.com/rcrowley/go-metrics v0.0.0-20250401214520-65e299d6c5c9
@@ -10,7 +8,6 @@ require (
 	go.uber.org/ratelimit v0.3.1
 	golang.org/x/sync v0.15.0
 	golang.org/x/sys v0.33.0
-	golang.org/x/xerrors v0.0.0-20240903120638-7835f813f4da
 )
 
 require (

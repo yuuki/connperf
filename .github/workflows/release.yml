@@ -14,16 +14,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 1
+          fetch-depth: 0
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
           go-version: '1.24.4'
       - name: Run GoReleaser
-        uses: goreleaser/goreleaser-action@v5
+        uses: goreleaser/goreleaser-action@v6
         with:
           version: latest
-          args: release --rm-dist
+          args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   docker:
@@ -32,19 +32,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 1
+          fetch-depth: 0
 
       - name: Set variables
         if: github.event_name != 'pull_request'
         id: variables
         run: |
           git_tag_name="${GITHUB_REF#refs/tags/}"
-          echo "::set-output name=git_tag_name::${git_tag_name}"
+          echo "git_tag_name=${git_tag_name}" >> $GITHUB_OUTPUT
           git_tag_name="${git_tag_name#v}"
-          echo "::set-output name=release_tag_patch::${git_tag_name}"
-          echo "::set-output name=release_tag_minor::${git_tag_name%.*}"
-          echo "::set-output name=release_tag_major::${git_tag_name%%.*}"
-          echo "::set-output name=created::$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          echo "release_tag_patch=${git_tag_name}" >> $GITHUB_OUTPUT
+          echo "release_tag_minor=${git_tag_name%.*}" >> $GITHUB_OUTPUT
+          echo "release_tag_major=${git_tag_name%%.*}" >> $GITHUB_OUTPUT
+          echo "created=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> $GITHUB_OUTPUT
 
       - name: Login
         if: github.event_name != 'pull_request'
@@ -56,7 +56,7 @@ jobs:
 
       - name: Build and Push to GitHub Packages
         if: github.event_name != 'pull_request'
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           push: true
           tags: |

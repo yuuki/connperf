@@ -1,6 +1,95 @@
 # connperf
 
-connperf is a load generator for measuring the performance of TCP/UDP connections in Go.
+[![Test](https://github.com/yuuki/connperf/actions/workflows/test.yml/badge.svg)](https://github.com/yuuki/connperf/actions/workflows/test.yml)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/yuuki/connperf)
+
+connperf is a high-performance TCP/UDP connection load generator and performance measurement tool written in Go.
+
+## What is connperf?
+
+connperf is a specialized tool designed to measure and analyze the performance characteristics of network connections. It operates in two primary modes:
+
+- **Server mode (`serve`)**: Acts as an echo server that accepts TCP/UDP connections and echoes back received data
+- **Client mode (`connect`)**: Generates configurable load against target servers and measures connection performance metrics
+
+## Why use connperf?
+
+Network performance testing is crucial for:
+
+- **Load testing**: Validate server capacity and identify bottlenecks before production deployment
+- **Connection establishment performance**: Measure how quickly new connections can be established (ephemeral mode)
+- **Sustained connection performance**: Test throughput and latency of long-lived connections (persistent mode)
+- **Protocol comparison**: Compare TCP vs UDP performance characteristics
+- **Infrastructure validation**: Verify network infrastructure can handle expected traffic patterns
+- **Performance regression testing**: Detect performance degradations in network services
+
+## How it works
+
+connperf provides two distinct connection patterns to simulate real-world usage:
+
+### Persistent Connections
+Maintains long-lived connections and sends multiple requests per connection. This simulates applications like web services with connection pooling or persistent database connections.
+
+### Ephemeral Connections
+Creates new connections for each request, immediately closing them afterward. This simulates scenarios like HTTP/1.0 or testing connection establishment overhead.
+
+### Key Features
+
+- **Real-time metrics**: Latency percentiles (90th, 95th, 99th), throughput, and connection counts
+- **Rate limiting**: Control connection establishment rate to simulate realistic load patterns
+- **Multi-target support**: Test multiple endpoints simultaneously and aggregate results
+- **Protocol support**: Both TCP and UDP with optimized implementations
+- **Platform optimizations**: Leverages Linux-specific optimizations (TCP_FASTOPEN, SO_REUSEPORT) when available
+
+## Installation
+
+### Pre-built Binaries
+
+Download the latest pre-built binaries from the [GitHub Releases](https://github.com/yuuki/connperf/releases) page:
+
+```bash
+# Linux (x86_64)
+curl -LO https://github.com/yuuki/connperf/releases/latest/download/connperf_linux_amd64.tar.gz
+tar -xzf connperf_linux_amd64.tar.gz
+sudo mv connperf /usr/local/bin/
+
+# macOS (x86_64)
+curl -LO https://github.com/yuuki/connperf/releases/latest/download/connperf_darwin_amd64.tar.gz
+tar -xzf connperf_darwin_amd64.tar.gz
+sudo mv connperf /usr/local/bin/
+
+# macOS (Apple Silicon)
+curl -LO https://github.com/yuuki/connperf/releases/latest/download/connperf_darwin_arm64.tar.gz
+tar -xzf connperf_darwin_arm64.tar.gz
+sudo mv connperf /usr/local/bin/
+```
+
+### Build from Source
+
+Requirements:
+- Go 1.22+ (see [go.mod](go.mod) for exact version requirements)
+- Git
+
+```bash
+# Clone the repository
+git clone https://github.com/yuuki/connperf.git
+cd connperf
+
+# Build using Make
+make build
+
+# Or build directly with Go
+go build -o connperf .
+
+# Install to $GOPATH/bin
+go install .
+```
+
+### Verify Installation
+
+```bash
+connperf --help
+```
 
 ## Usage
 
@@ -91,3 +180,7 @@ PEER                 CNT        LAT_MAX(µs)     LAT_MIN(µs)     LAT_MEAN(µs) 
 10.0.150.2:9200      14799      13736           223             530             501             953             5989            996.00
 10.0.150.2:9300      14809      18023           212             542             492             1110            5849            996.47
 ```
+
+## License
+
+This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.

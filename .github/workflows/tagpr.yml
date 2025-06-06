@@ -16,7 +16,7 @@ jobs:
       - uses: Songmu/tagpr@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - uses: ./.github/actions/release.yml
+      - uses: ./.github/workflows/release.yml
         with:
           tag: ${{ steps.tagpr.outputs.tag }}
         if: "steps.tagpr.outputs.tag != ''"

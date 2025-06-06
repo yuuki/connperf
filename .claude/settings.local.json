@@ -11,8 +11,10 @@
       "Edit(./**)",
       "Bash(cp:*)",
       "Bash(rm:*)",
-      "Bash(go build:*)",
-      "Bash(./connperf --help)"
+      "Bash(./connperf --help)",
+      "Bash(grep:*)",
+      "Bash(make test:*)",
+      "Bash(rg:*)"
     ],
     "deny": []
   }

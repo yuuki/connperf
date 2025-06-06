@@ -17,7 +17,6 @@ builds:
     goos:
       - linux
       - darwin
-      - windows
     goarch:
       - amd64
       - arm64
@@ -35,8 +34,8 @@ changelog:
   sort: asc
   filters:
     exclude:
-      - '^docs:'
-      - '^test:'
-      - '^ci:'
+      - "^docs:"
+      - "^test:"
+      - "^ci:"
       - Merge pull request
       - Merge branch

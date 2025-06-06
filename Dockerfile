@@ -1,4 +1,4 @@
-FROM golang:1.22.1 as builder
+FROM golang:1.24.4 as builder
 
 FROM builder as build
 WORKDIR /connperf

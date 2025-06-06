@@ -1,6 +1,6 @@
 module github.com/yuuki/connperf
 
-go 1.22.1
+go 1.22.12
 
 require (
 	github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475

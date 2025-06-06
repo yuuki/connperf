@@ -122,7 +122,7 @@ func (c *Client) connectPersistent(ctx context.Context, addrport string) error {
 	defer cancel()
 
 	bufTCPPool := sync.Pool{
-		New: func() interface{} { return make([]byte, c.config.MessageBytes) },
+		New: func() any { return make([]byte, c.config.MessageBytes) },
 	}
 
 	dialer := net.Dialer{
@@ -179,7 +179,7 @@ func (c *Client) connectEphemeral(ctx context.Context, addrport string) error {
 	defer cancel()
 
 	bufTCPPool := sync.Pool{
-		New: func() interface{} { return make([]byte, c.config.MessageBytes) },
+		New: func() any { return make([]byte, c.config.MessageBytes) },
 	}
 
 	dialer := net.Dialer{
@@ -255,7 +255,7 @@ func (c *Client) connectUDP(ctx context.Context, addrport string) error {
 	limiter := ratelimit.New(int(c.config.ConnectRate))
 
 	bufUDPPool := sync.Pool{
-		New: func() interface{} { return make([]byte, c.config.MessageBytes) },
+		New: func() any { return make([]byte, c.config.MessageBytes) },
 	}
 
 	eg, ctx := errgroup.WithContext(ctx)

@@ -25,7 +25,7 @@ import (
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "connperf",
-	Short: "connperf is a measturement tool for TCP connections in Go",
+	Short: "connperf is a measurement tool for TCP connections in Go",
 }
 
 func main() {

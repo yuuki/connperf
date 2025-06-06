@@ -13,14 +13,18 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-const UDPPacketSize = 1500
+const (
+	UDPPacketSize     = 1500
+	TCPBufferSize     = 4 * 1024
+	RetryDelaySeconds = 1
+)
 
 var serveMsgBuf = sync.Pool{
-	New: func() interface{} { return make([]byte, 4*1024) },
+	New: func() any { return make([]byte, TCPBufferSize) },
 }
 
 var bufUDPPool = sync.Pool{
-	New: func() interface{} { return make([]byte, UDPPacketSize) },
+	New: func() any { return make([]byte, UDPPacketSize) },
 }
 
 type ServerConfig struct {
@@ -96,11 +100,11 @@ func (s *Server) serveTCP(ctx context.Context) error {
 					}
 
 					var ne net.Error
-					if errors.As(err, &ne) && ne.Temporary() {
-						slog.Warn("temporary error accepting TCP connection",
+					if errors.As(err, &ne) && ne.Timeout() {
+						slog.Warn("timeout error accepting TCP connection",
 							"addr", ln.Addr(),
 							"error", err)
-						time.Sleep(time.Second)
+						time.Sleep(RetryDelaySeconds * time.Second)
 						continue
 					}
 					if errors.Is(err, net.ErrClosed) {

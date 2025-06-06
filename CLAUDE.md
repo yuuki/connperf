@@ -15,25 +15,27 @@ connperf is a TCP/UDP connection performance load generator written in Go. It pr
 make build
 
 # Build Docker image
-make docker
+make docker/build
 
 # Run tests
+make test
+# or
 go test ./...
-
-# Run tests for specific package
-go test ./cmd/
 ```
 
 ## Architecture
 
-The project follows a clean CLI architecture using the Cobra framework:
+The project follows a simple flat structure with all Go files in the top-level directory:
 
-- `main.go`: Entry point that delegates to cmd.Execute()
-- `cmd/root.go`: Root Cobra command setup
-- `cmd/serve.go`: Server implementation with TCP/UDP listeners using context-based cancellation and errgroup for concurrent handling
-- `cmd/connect.go`: Client implementation with persistent/ephemeral connection modes, rate limiting, and latency measurements
-- `limit/`: Package for setting file descriptor limits to handle high connection counts
-- `sock/`: Platform-specific socket optimizations (Linux vs non-Linux with build tags)
+- `main.go`: Entry point defining root Cobra command
+- `serve.go`: Server subcommand implementation
+- `connect.go`: Client subcommand implementation
+- `server.go`: TCP/UDP server logic with context-based cancellation and errgroup for concurrent handling
+- `client.go`: Client implementation with persistent/ephemeral connection modes, rate limiting, and latency measurements
+- `option.go`: Default socket option implementations (non-Linux platforms)
+- `option_linux.go`: Linux-specific socket optimizations using build tags
+- `utils.go`: Utility functions for file descriptor limits and file reading
+- `version.go`: Version information
 
 ## Key Design Patterns
 
@@ -54,15 +56,26 @@ The project follows a clean CLI architecture using the Cobra framework:
 
 ## Testing
 
-The project includes test files (cmd/serve_test.go). When adding new functionality, follow the existing test patterns and ensure all edge cases are covered, especially around connection handling and error scenarios.
+The project includes test files (connect_test.go, serve_test.go, e2e_test.go). When adding new functionality, follow the existing test patterns and ensure all edge cases are covered, especially around connection handling and error scenarios.
 
 ## Development Notes
 
-- File descriptor limits are automatically raised via the `limit` package
+- File descriptor limits are automatically raised via utils.go
 - Server gracefully handles signals (SIGINT, SIGTERM) for clean shutdown
 - Error handling includes specific logic for network timeouts and connection resets
-- Build uses Go modules with go 1.24.4
+- Build uses Go modules with go 1.24 (toolchain go1.24)
+- Platform-specific code uses build tags (+build linux / +build !linux)
+
+## Dependencies
+
+Key dependencies include:
+- github.com/spf13/cobra: CLI framework
+- github.com/rcrowley/go-metrics: Performance metrics
+- go.uber.org/ratelimit: Rate limiting
+- golang.org/x/sync/errgroup: Concurrent error handling
+- golang.org/x/sys/unix: Linux system calls
 
 ## Additional Guidance
 
-- Place all go files into top-level directory
+- All Go files are placed in the top-level directory
+- Use build tags for platform-specific implementations

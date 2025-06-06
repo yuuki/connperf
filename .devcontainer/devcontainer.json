@@ -8,8 +8,7 @@
       "extensions": [
         "golang.go",
         "ms-vscode.makefile-tools",
-        "ms-vscode.vscode-json",
-        "redhat.vscode-yaml"
+        "anthropic.claude-code"
       ],
       "settings": {
         "go.toolsManagement.checkForUpdates": "local",
@@ -26,6 +25,10 @@
   "remoteUser": "vscode",
   "workspaceFolder": "/workspace",
   "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=cached",
+  "mounts": [
+    "source=${localEnv:HOME}/.claude,target=/home/vscode/.claude,type=bind,consistency=cached",
+    "source=${localEnv:HOME}/.claude.json,target=/home/vscode/.claude.json,type=bind,consistency=cached"
+  ],
   "postCreateCommand": "go mod download",
   "forwardPorts": [
     9100

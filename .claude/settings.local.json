@@ -1,4 +1,5 @@
 {
+  "cleanupPeriodDays": 60,
   "permissions": {
     "allow": [
       "Bash(mkdir:*)",
@@ -7,9 +8,12 @@
       "Bash(go test:*)",
       "WebFetch(domain:*)",
       "Read(./**)",
-      "Edit(./**)"
+      "Edit(./**)",
+      "Bash(cp:*)",
+      "Bash(rm:*)",
+      "Bash(go build:*)",
+      "Bash(./connperf --help)"
     ],
     "deny": []
-  },
-  "cleanupPeriodDays": 60
+  }
 }

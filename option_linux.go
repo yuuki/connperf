@@ -1,6 +1,6 @@
 // +build linux
 
-package sock
+package main
 
 import (
 	"log"

@@ -13,7 +13,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-package cmd
+package main
 
 import (
 	"context"
@@ -27,8 +27,6 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"github.com/yuuki/connperf/limit"
-	"github.com/yuuki/connperf/sock"
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/sys/unix"
 )
@@ -44,7 +42,7 @@ var serveCmd = &cobra.Command{
 	Use:   "serve",
 	Short: "serve accepts connections",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		if err := limit.SetRLimitNoFile(); err != nil {
+		if err := SetRLimitNoFile(); err != nil {
 			return fmt.Errorf("setting file limit: %w", err)
 		}
 
@@ -105,7 +103,7 @@ func init() {
 
 func serveTCP(ctx context.Context) error {
 	lc := net.ListenConfig{
-		Control: sock.GetTCPControlWithFastOpen(),
+		Control: GetTCPControlWithFastOpen(),
 	}
 
 	eg, ctx := errgroup.WithContext(ctx)
@@ -147,10 +145,10 @@ func serveTCP(ctx context.Context) error {
 					return fmt.Errorf("accepting TCP connection: %w", err)
 				}
 
-				if err := sock.SetQuickAck(conn); err != nil {
+				if err := SetQuickAck(conn); err != nil {
 					return fmt.Errorf("setting quick ack: %w", err)
 				}
-				if err := sock.SetLinger(conn); err != nil {
+				if err := SetLinger(conn); err != nil {
 					return fmt.Errorf("setting linger: %w", err)
 				}
 

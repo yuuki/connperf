@@ -13,7 +13,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-package cmd
+package main
 
 import (
 	"context"
@@ -37,8 +37,6 @@ import (
 	"go.uber.org/ratelimit"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/yuuki/connperf/limit"
-	"github.com/yuuki/connperf/sock"
 )
 
 const (
@@ -190,7 +188,7 @@ func runConnectCmd(cmd *cobra.Command, args []string) error {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	if err := limit.SetRLimitNoFile(); err != nil {
+	if err := SetRLimitNoFile(); err != nil {
 		return fmt.Errorf("setting file limit: %w", err)
 	}
 
@@ -308,7 +306,7 @@ func connectPersistent(ctx context.Context, addrport string) error {
 	}
 
 	dialer := net.Dialer{
-		Control: sock.GetTCPControlWithFastOpen(),
+		Control: GetTCPControlWithFastOpen(),
 	}
 
 	eg, ctx := errgroup.WithContext(ctx)
@@ -365,7 +363,7 @@ func connectEphemeral(ctx context.Context, addrport string) error {
 	}
 
 	dialer := net.Dialer{
-		Control: sock.GetTCPControlWithFastOpen(),
+		Control: GetTCPControlWithFastOpen(),
 	}
 
 	connTotal := int64(connectRate) * int64(duration.Seconds())
@@ -392,10 +390,10 @@ func connectEphemeral(ctx context.Context, addrport string) error {
 				}
 				defer conn.Close()
 
-				if err := sock.SetLinger(conn); err != nil {
+				if err := SetLinger(conn); err != nil {
 					return fmt.Errorf("setting linger: %w", err)
 				}
-				if err := sock.SetQuickAck(conn); err != nil {
+				if err := SetQuickAck(conn); err != nil {
 					return fmt.Errorf("setting quick ack: %w", err)
 				}
 

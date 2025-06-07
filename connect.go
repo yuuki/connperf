@@ -22,6 +22,7 @@ import (
 	"net/http"
 	_ "net/http/pprof"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
@@ -39,6 +40,7 @@ var (
 	messageBytes         int32
 	showOnlyResults      bool
 	mergeResultsEachHost bool
+	pprofMutex           sync.RWMutex
 	pprof                bool
 	pprofAddr            string
 	addrsFile            bool
@@ -104,11 +106,16 @@ func init() {
 }
 
 func setPprofServer() {
-	if !pprof {
+	pprofMutex.RLock()
+	enablePprof := pprof
+	addr := pprofAddr
+	pprofMutex.RUnlock()
+	
+	if !enablePprof {
 		return
 	}
 	go func() {
-		if err := http.ListenAndServe(pprofAddr, nil); err != nil {
+		if err := http.ListenAndServe(addr, nil); err != nil {
 			slog.Error("pprof server error", "error", err)
 		}
 	}()

@@ -27,7 +27,7 @@ func TestServeTCP(t *testing.T) {
 		defer wg.Done()
 		server := NewServer(ServerConfig{
 			ListenAddrs: listenAddrs,
-			Protocol: "tcp",
+			Protocol:    "tcp",
 		})
 		server.serveTCP(serverCtx)
 	}()
@@ -96,7 +96,7 @@ func TestServeUDP(t *testing.T) {
 		defer wg.Done()
 		server := NewServer(ServerConfig{
 			ListenAddrs: listenAddrs,
-			Protocol: "udp",
+			Protocol:    "udp",
 		})
 		server.serveUDP(serverCtx)
 	}()
@@ -165,7 +165,7 @@ func TestTCPEchoMultipleConnections(t *testing.T) {
 		defer wg.Done()
 		server := NewServer(ServerConfig{
 			ListenAddrs: listenAddrs,
-			Protocol: "tcp",
+			Protocol:    "tcp",
 		})
 		server.serveTCP(serverCtx)
 	}()
@@ -238,7 +238,7 @@ func TestUDPEchoMultiplePackets(t *testing.T) {
 		defer wg.Done()
 		server := NewServer(ServerConfig{
 			ListenAddrs: listenAddrs,
-			Protocol: "udp",
+			Protocol:    "udp",
 		})
 		server.serveUDP(serverCtx)
 	}()
@@ -264,7 +264,7 @@ func TestUDPEchoMultiplePackets(t *testing.T) {
 	numPackets := 5
 	for i := range numPackets {
 		conn.SetDeadline(time.Now().Add(time.Second))
-		
+
 		testData := fmt.Sprintf("Packet %d", i)
 		if _, err := conn.Write([]byte(testData)); err != nil {
 			t.Errorf("Failed to write packet %d: %v", i, err)
@@ -331,7 +331,7 @@ func TestHandleConnection(t *testing.T) {
 
 	for _, msg := range testMessages {
 		clientConn.SetDeadline(time.Now().Add(time.Second))
-		
+
 		if _, err := clientConn.Write([]byte(msg)); err != nil {
 			t.Errorf("Failed to write message %q: %v", msg, err)
 			continue

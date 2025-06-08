@@ -1,5 +1,5 @@
 version: 2
-project_name: connperf
+project_name: tcpulse
 env:
   - GO111MODULE=on
 before:
@@ -7,11 +7,11 @@ before:
     - go mod tidy
 builds:
   - main: .
-    binary: connperf
+    binary: tcpulse
     ldflags:
       - -s -w
-      - -X github.com/yuuki/connperf/cmd.Version={{.Version}}
-      - -X github.com/yuuki/connperf/cmd.Revision={{.ShortCommit}}
+      - -X github.com/yuuki/tcpulse/main.version={{.Version}}
+      - -X github.com/yuuki/tcpulse/main.revision={{.ShortCommit}}
     env:
       - CGO_ENABLED=0
     goos:

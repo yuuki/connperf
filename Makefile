@@ -1,9 +1,9 @@
 .PHONY: build test docker/build
 
-OUT_BIN := connperf
+OUT_BIN := tcpulse
 GO := $(shell which go)
 CMD_DOCKER ?= docker
-OUT_DOCKER ?= connperf
+OUT_DOCKER ?= tcpulse
 
 all: vet build
 

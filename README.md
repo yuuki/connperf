@@ -50,13 +50,13 @@ Download the latest pre-built binaries from the [GitHub Releases](https://github
 
 ```bash
 # Linux (x86_64)
-curl -LO https://github.com/yuuki/tcpulse/releases/latest/download/tcpulse_linux_amd64.tar.gz
-tar -xzf tcpulse_linux_amd64.tar.gz
+curl -LO https://github.com/yuuki/tcpulse/releases/latest/download/tcpulse_linux_x86_64.tar.gz
+tar -xzf tcpulse_linux_x86_64.tar.gz
 sudo mv tcpulse /usr/local/bin/
 
 # macOS (x86_64)
-curl -LO https://github.com/yuuki/tcpulse/releases/latest/download/tcpulse_darwin_amd64.tar.gz
-tar -xzf tcpulse_darwin_amd64.tar.gz
+curl -LO https://github.com/yuuki/tcpulse/releases/latest/download/tcpulse_darwin_x86_64.tar.gz
+tar -xzf tcpulse_darwin_x86_64.tar.gz
 sudo mv tcpulse /usr/local/bin/
 
 # macOS (Apple Silicon)
@@ -194,7 +194,7 @@ The JSON Lines format includes the following fields:
 - `peer`: Target server address
 - `count`: Total number of successful connections/requests
 - `latency_max_us`: Maximum latency in microseconds
-- `latency_min_us`: Minimum latency in microseconds  
+- `latency_min_us`: Minimum latency in microseconds
 - `latency_mean_us`: Mean latency in microseconds
 - `latency_90p_us`: 90th percentile latency in microseconds
 - `latency_95p_us`: 95th percentile latency in microseconds

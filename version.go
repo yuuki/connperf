@@ -6,7 +6,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const version = "0.7.1"
+const version = "0.7.2"
 
 var revision = "HEAD"
 

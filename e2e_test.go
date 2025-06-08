@@ -12,14 +12,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/spf13/pflag"
+	"golang.org/x/sync/errgroup"
 )
 
 // testRunClientE2E wraps runClient for e2e testing
 func testRunClientE2E(out io.Writer, args []string) error {
 	// Save original values
 	originalStdout := os.Stdout
-	originalArgs := os.Args
+
+	var copyDone chan struct{}
 
 	// Create pipe to capture output if needed
 	if out != os.Stdout {
@@ -28,31 +29,70 @@ func testRunClientE2E(out io.Writer, args []string) error {
 			return err
 		}
 		os.Stdout = w
+		copyDone = make(chan struct{})
 
 		// Copy output to our writer in background
 		go func() {
 			defer r.Close()
+			defer close(copyDone)
 			io.Copy(out, r)
 		}()
 
 		defer func() {
 			w.Close()
+			<-copyDone // Wait for copy to complete
 			os.Stdout = originalStdout
 		}()
 	}
 
-	// Simulate command line args for client mode
-	os.Args = append([]string{"tcpulse", "-c"}, args...)
-	defer func() { os.Args = originalArgs }()
+	// Create a simple client config and call the client directly
+	// instead of going through command line parsing
+	ctx, cancel := context.WithTimeout(context.Background(), duration)
+	defer cancel()
 
-	// Parse flags to set the variables
-	pflag.CommandLine.Parse(os.Args[1:])
+	if err := SetRLimitNoFile(); err != nil {
+		return fmt.Errorf("setting file limit: %w", err)
+	}
 
-	// Ensure client mode is enabled
-	clientMode = true
-	serverMode = false
+	if !jsonlines {
+		printStatHeader(os.Stdout)
+	}
 
-	return runClient()
+	config := ClientConfig{
+		Protocol:             protocol,
+		ConnectFlavor:        connectFlavor,
+		Connections:          connections,
+		ConnectRate:          connectRate,
+		Duration:             duration,
+		MessageBytes:         messageBytes,
+		MergeResultsEachHost: mergeResultsEachHost,
+		JSONLines:            jsonlines,
+	}
+
+	client := NewClient(config)
+
+	eg, ctx := errgroup.WithContext(ctx)
+	for _, addr := range args {
+		addr := addr
+		eg.Go(func() error {
+			if showOnlyResults || jsonlines {
+				return client.ConnectToAddresses(ctx, []string{addr})
+			}
+			runStatLinePrinter(ctx, os.Stdout, addr, intervalStats, mergeResultsEachHost)
+			return client.ConnectToAddresses(ctx, []string{addr})
+		})
+	}
+
+	if err := eg.Wait(); err != nil {
+		return fmt.Errorf("connection error: %w", err)
+	}
+
+	if jsonlines {
+		printJSONLinesReport(os.Stdout, args, mergeResultsEachHost)
+	} else {
+		printReport(os.Stdout, args, mergeResultsEachHost)
+	}
+	return nil
 }
 
 // TestE2ETCPServerClientEcho tests end-to-end TCP communication

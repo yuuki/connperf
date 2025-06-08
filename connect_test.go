@@ -15,6 +15,7 @@ import (
 
 	"github.com/rcrowley/go-metrics"
 	"go.uber.org/ratelimit"
+	"golang.org/x/sync/errgroup"
 )
 
 // threadSafeWriter wraps an io.Writer with a mutex for safe concurrent access
@@ -62,8 +63,9 @@ func validateClientArgs(args []string) error {
 func testRunClient(out io.Writer, args []string) error {
 	// Save original values
 	originalStdout := os.Stdout
-	originalArgs := os.Args
 
+	var copyDone chan struct{}
+	
 	// Create pipe to capture output if needed
 	if out != os.Stdout {
 		r, w, err := os.Pipe()
@@ -71,29 +73,70 @@ func testRunClient(out io.Writer, args []string) error {
 			return err
 		}
 		os.Stdout = w
+		copyDone = make(chan struct{})
 
 		// Copy output to our writer in background
 		go func() {
 			defer r.Close()
+			defer close(copyDone)
 			io.Copy(out, r)
 		}()
 
 		defer func() {
 			w.Close()
+			<-copyDone // Wait for copy to complete
 			os.Stdout = originalStdout
 		}()
 	}
 
-	// Save original args and set new ones
-	os.Args = append([]string{"tcpulse", "-c"}, args...)
-	defer func() { os.Args = originalArgs }()
+	// Create a simple client config and call the client directly
+	// instead of going through command line parsing
+	ctx, cancel := context.WithTimeout(context.Background(), duration)
+	defer cancel()
 
-	// Need to import pflag and parse
-	// For now, let's just set clientMode directly
-	clientMode = true
-	serverMode = false
+	if err := SetRLimitNoFile(); err != nil {
+		return fmt.Errorf("setting file limit: %w", err)
+	}
 
-	return runClient()
+	if !jsonlines {
+		printStatHeader(os.Stdout)
+	}
+
+	config := ClientConfig{
+		Protocol:             protocol,
+		ConnectFlavor:        connectFlavor,
+		Connections:          connections,
+		ConnectRate:          connectRate,
+		Duration:             duration,
+		MessageBytes:         messageBytes,
+		MergeResultsEachHost: mergeResultsEachHost,
+		JSONLines:            jsonlines,
+	}
+
+	client := NewClient(config)
+
+	eg, ctx := errgroup.WithContext(ctx)
+	for _, addr := range args {
+		addr := addr
+		eg.Go(func() error {
+			if showOnlyResults || jsonlines {
+				return client.ConnectToAddresses(ctx, []string{addr})
+			}
+			runStatLinePrinter(ctx, os.Stdout, addr, intervalStats, mergeResultsEachHost)
+			return client.ConnectToAddresses(ctx, []string{addr})
+		})
+	}
+
+	if err := eg.Wait(); err != nil {
+		return fmt.Errorf("connection error: %w", err)
+	}
+
+	if jsonlines {
+		printJSONLinesReport(os.Stdout, args, mergeResultsEachHost)
+	} else {
+		printReport(os.Stdout, args, mergeResultsEachHost)
+	}
+	return nil
 }
 
 func TestGetAddrsFromFile(t *testing.T) {

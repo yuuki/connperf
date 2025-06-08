@@ -1,60 +1,60 @@
 # Changelog
 
-## [v0.7.1](https://github.com/yuuki/connperf/compare/v0.7.0...v0.7.1) - 2025-06-06
-- serve: support to pass addrs in a file as an argument by @yuuki in https://github.com/yuuki/connperf/pull/18
-- bump version go by @yuuki in https://github.com/yuuki/connperf/pull/19
+## [v0.7.1](https://github.com/yuuki/tcpulse/compare/v0.7.0...v0.7.1) - 2025-06-06
+- serve: support to pass addrs in a file as an argument by @yuuki in https://github.com/yuuki/tcpulse/pull/18
+- bump version go by @yuuki in https://github.com/yuuki/tcpulse/pull/19
 
-## [v0.7.1](https://github.com/yuuki/connperf/compare/v0.7.0...v0.7.1) - 2025-06-06
-- serve: support to pass addrs in a file as an argument by @yuuki in https://github.com/yuuki/connperf/pull/18
-- bump version go by @yuuki in https://github.com/yuuki/connperf/pull/19
+## [v0.7.1](https://github.com/yuuki/tcpulse/compare/v0.7.0...v0.7.1) - 2025-06-06
+- serve: support to pass addrs in a file as an argument by @yuuki in https://github.com/yuuki/tcpulse/pull/18
+- bump version go by @yuuki in https://github.com/yuuki/tcpulse/pull/19
 
-## [v0.7.1](https://github.com/yuuki/connperf/compare/v0.7.0...v0.7.1) - 2025-06-06
-- serve: support to pass addrs in a file as an argument by @yuuki in https://github.com/yuuki/connperf/pull/18
-- bump version go by @yuuki in https://github.com/yuuki/connperf/pull/19
+## [v0.7.1](https://github.com/yuuki/tcpulse/compare/v0.7.0...v0.7.1) - 2025-06-06
+- serve: support to pass addrs in a file as an argument by @yuuki in https://github.com/yuuki/tcpulse/pull/18
+- bump version go by @yuuki in https://github.com/yuuki/tcpulse/pull/19
 
-## [v0.7.1](https://github.com/yuuki/connperf/compare/v0.7.0...v0.7.1) - 2025-06-06
-- serve: support to pass addrs in a file as an argument by @yuuki in https://github.com/yuuki/connperf/pull/18
-- bump version go by @yuuki in https://github.com/yuuki/connperf/pull/19
+## [v0.7.1](https://github.com/yuuki/tcpulse/compare/v0.7.0...v0.7.1) - 2025-06-06
+- serve: support to pass addrs in a file as an argument by @yuuki in https://github.com/yuuki/tcpulse/pull/18
+- bump version go by @yuuki in https://github.com/yuuki/tcpulse/pull/19
 
-## [v0.7.0](https://github.com/yuuki/connperf/compare/v0.6.0...v0.7.0) - 2021-05-31
-- serve: set SO_REUSEPORTS by @yuuki in https://github.com/yuuki/connperf/pull/15
-- serve: add --protocol flag by @yuuki in https://github.com/yuuki/connperf/pull/16
-- connect: support to pass addrs in a file as an argument by @yuuki in https://github.com/yuuki/connperf/pull/17
+## [v0.7.0](https://github.com/yuuki/tcpulse/compare/v0.6.0...v0.7.0) - 2021-05-31
+- serve: set SO_REUSEPORTS by @yuuki in https://github.com/yuuki/tcpulse/pull/15
+- serve: add --protocol flag by @yuuki in https://github.com/yuuki/tcpulse/pull/16
+- connect: support to pass addrs in a file as an argument by @yuuki in https://github.com/yuuki/tcpulse/pull/17
 
-## [v0.6.0](https://github.com/yuuki/connperf/compare/v0.5.3...v0.6.0) - 2021-05-25
-- serve: support multiple listening ports by @yuuki in https://github.com/yuuki/connperf/pull/14
+## [v0.6.0](https://github.com/yuuki/tcpulse/compare/v0.5.3...v0.6.0) - 2021-05-25
+- serve: support multiple listening ports by @yuuki in https://github.com/yuuki/tcpulse/pull/14
 
-## [v0.5.3](https://github.com/yuuki/connperf/compare/v0.5.2...v0.5.3) - 2021-05-24
-- connect: add --merge-results-each-host flag by @yuuki in https://github.com/yuuki/connperf/pull/13
+## [v0.5.3](https://github.com/yuuki/tcpulse/compare/v0.5.2...v0.5.3) - 2021-05-24
+- connect: add --merge-results-each-host flag by @yuuki in https://github.com/yuuki/tcpulse/pull/13
 
-## [v0.5.2](https://github.com/yuuki/connperf/compare/v0.5.1...v0.5.2) - 2021-05-24
-- avoid connect overflow by @yuuki in https://github.com/yuuki/connperf/pull/11
-- connect: fix nil pointer dereference of the 'conn' object by @yuuki in https://github.com/yuuki/connperf/pull/12
+## [v0.5.2](https://github.com/yuuki/tcpulse/compare/v0.5.1...v0.5.2) - 2021-05-24
+- avoid connect overflow by @yuuki in https://github.com/yuuki/tcpulse/pull/11
+- connect: fix nil pointer dereference of the 'conn' object by @yuuki in https://github.com/yuuki/tcpulse/pull/12
 
-## [v0.5.1](https://github.com/yuuki/connperf/compare/v0.5.0...v0.5.1) - 2021-04-19
+## [v0.5.1](https://github.com/yuuki/tcpulse/compare/v0.5.0...v0.5.1) - 2021-04-19
 
-## [v0.5.0](https://github.com/yuuki/connperf/compare/v0.4.1...v0.5.0) - 2021-04-19
-- use GITHUB_TOKEN instead of PAT in GitHub Action by @yuuki in https://github.com/yuuki/connperf/pull/7
-- Use docker actions by @yuuki in https://github.com/yuuki/connperf/pull/8
-- connect: add --message-bytes option by @yuuki in https://github.com/yuuki/connperf/pull/9
-- Tuning TCP option for ephemeral flavor by @yuuki in https://github.com/yuuki/connperf/pull/10
+## [v0.5.0](https://github.com/yuuki/tcpulse/compare/v0.4.1...v0.5.0) - 2021-04-19
+- use GITHUB_TOKEN instead of PAT in GitHub Action by @yuuki in https://github.com/yuuki/tcpulse/pull/7
+- Use docker actions by @yuuki in https://github.com/yuuki/tcpulse/pull/8
+- connect: add --message-bytes option by @yuuki in https://github.com/yuuki/tcpulse/pull/9
+- Tuning TCP option for ephemeral flavor by @yuuki in https://github.com/yuuki/tcpulse/pull/10
 
-## [v0.4.1](https://github.com/yuuki/connperf/compare/v0.4.0...v0.4.1) - 2021-03-24
+## [v0.4.1](https://github.com/yuuki/tcpulse/compare/v0.4.0...v0.4.1) - 2021-03-24
 
-## [v0.4.0](https://github.com/yuuki/connperf/compare/v0.3.2...v0.4.0) - 2021-03-23
-- enable persistent rate by @yuuki in https://github.com/yuuki/connperf/pull/6
+## [v0.4.0](https://github.com/yuuki/tcpulse/compare/v0.3.2...v0.4.0) - 2021-03-23
+- enable persistent rate by @yuuki in https://github.com/yuuki/tcpulse/pull/6
 
-## [v0.3.2](https://github.com/yuuki/connperf/compare/v0.3.1...v0.3.2) - 2021-03-03
-- connect: enable to return network error by @yuuki in https://github.com/yuuki/connperf/pull/5
+## [v0.3.2](https://github.com/yuuki/tcpulse/compare/v0.3.1...v0.3.2) - 2021-03-03
+- connect: enable to return network error by @yuuki in https://github.com/yuuki/tcpulse/pull/5
 
-## [v0.3.1](https://github.com/yuuki/connperf/compare/v0.3.0...v0.3.1) - 2021-03-03
-- use the new ErrClosed error introduced by go 1.16 by @yuuki in https://github.com/yuuki/connperf/pull/4
+## [v0.3.1](https://github.com/yuuki/tcpulse/compare/v0.3.0...v0.3.1) - 2021-03-03
+- use the new ErrClosed error introduced by go 1.16 by @yuuki in https://github.com/yuuki/tcpulse/pull/4
 
-## [v0.3.0](https://github.com/yuuki/connperf/compare/v0.2.0...v0.3.0) - 2021-02-22
-- Bump version Go 1.16 by @yuuki in https://github.com/yuuki/connperf/pull/3
+## [v0.3.0](https://github.com/yuuki/tcpulse/compare/v0.2.0...v0.3.0) - 2021-02-22
+- Bump version Go 1.16 by @yuuki in https://github.com/yuuki/tcpulse/pull/3
 
-## [v0.2.0](https://github.com/yuuki/connperf/compare/v0.1.0...v0.2.0) - 2021-02-13
-- connect: Support multiple addrs by @yuuki in https://github.com/yuuki/connperf/pull/1
-- Add --show-only-results by @yuuki in https://github.com/yuuki/connperf/pull/2
+## [v0.2.0](https://github.com/yuuki/tcpulse/compare/v0.1.0...v0.2.0) - 2021-02-13
+- connect: Support multiple addrs by @yuuki in https://github.com/yuuki/tcpulse/pull/1
+- Add --show-only-results by @yuuki in https://github.com/yuuki/tcpulse/pull/2
 
-## [v0.1.0](https://github.com/yuuki/connperf/commits/v0.1.0) - 2021-02-13
+## [v0.1.0](https://github.com/yuuki/tcpulse/commits/v0.1.0) - 2021-02-13

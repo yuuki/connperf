@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-connperf is a TCP/UDP connection performance load generator written in Go. It provides two primary modes:
+tcpulse is a TCP/UDP connection performance load generator written in Go. It provides two primary modes:
 - **serve**: Acts as a server accepting TCP/UDP connections and echoing back data
 - **connect**: Acts as a client generating load against target servers
 

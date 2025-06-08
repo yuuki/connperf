@@ -1,18 +1,18 @@
-# connperf
+# tcpulse
 
-[![Test](https://github.com/yuuki/connperf/actions/workflows/test.yml/badge.svg)](https://github.com/yuuki/connperf/actions/workflows/test.yml)
-[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/yuuki/connperf)
+[![Test](https://github.com/yuuki/tcpulse/actions/workflows/test.yml/badge.svg)](https://github.com/yuuki/tcpulse/actions/workflows/test.yml)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/yuuki/tcpulse)
 
-connperf is a high-performance TCP/UDP connection load generator and performance measurement tool written in Go.
+tcpulse is a high-performance TCP/UDP connection load generator and performance measurement tool written in Go.
 
-## What is connperf?
+## What is tcpulse?
 
-connperf is a specialized tool designed to measure and analyze the performance characteristics of network connections. It operates in two primary modes:
+tcpulse is a specialized tool designed to measure and analyze the performance characteristics of network connections. It operates in two primary modes:
 
 - **Server mode (`serve`)**: Acts as an echo server that accepts TCP/UDP connections and echoes back received data
 - **Client mode (`connect`)**: Generates configurable load against target servers and measures connection performance metrics
 
-## Why use connperf?
+## Why use tcpulse?
 
 Network performance testing is crucial for:
 
@@ -25,7 +25,7 @@ Network performance testing is crucial for:
 
 ## How it works
 
-connperf provides two distinct connection patterns to simulate real-world usage:
+tcpulse provides two distinct connection patterns to simulate real-world usage:
 
 ### Persistent Connections
 Maintains long-lived connections and sends multiple requests per connection. This simulates applications like web services with connection pooling or persistent database connections.
@@ -46,23 +46,23 @@ Creates new connections for each request, immediately closing them afterward. Th
 
 ### Pre-built Binaries
 
-Download the latest pre-built binaries from the [GitHub Releases](https://github.com/yuuki/connperf/releases) page:
+Download the latest pre-built binaries from the [GitHub Releases](https://github.com/yuuki/tcpulse/releases) page:
 
 ```bash
 # Linux (x86_64)
-curl -LO https://github.com/yuuki/connperf/releases/latest/download/connperf_linux_amd64.tar.gz
-tar -xzf connperf_linux_amd64.tar.gz
-sudo mv connperf /usr/local/bin/
+curl -LO https://github.com/yuuki/tcpulse/releases/latest/download/tcpulse_linux_amd64.tar.gz
+tar -xzf tcpulse_linux_amd64.tar.gz
+sudo mv tcpulse /usr/local/bin/
 
 # macOS (x86_64)
-curl -LO https://github.com/yuuki/connperf/releases/latest/download/connperf_darwin_amd64.tar.gz
-tar -xzf connperf_darwin_amd64.tar.gz
-sudo mv connperf /usr/local/bin/
+curl -LO https://github.com/yuuki/tcpulse/releases/latest/download/tcpulse_darwin_amd64.tar.gz
+tar -xzf tcpulse_darwin_amd64.tar.gz
+sudo mv tcpulse /usr/local/bin/
 
 # macOS (Apple Silicon)
-curl -LO https://github.com/yuuki/connperf/releases/latest/download/connperf_darwin_arm64.tar.gz
-tar -xzf connperf_darwin_arm64.tar.gz
-sudo mv connperf /usr/local/bin/
+curl -LO https://github.com/yuuki/tcpulse/releases/latest/download/tcpulse_darwin_arm64.tar.gz
+tar -xzf tcpulse_darwin_arm64.tar.gz
+sudo mv tcpulse /usr/local/bin/
 ```
 
 ### Build from Source
@@ -73,14 +73,14 @@ Requirements:
 
 ```bash
 # Clone the repository
-git clone https://github.com/yuuki/connperf.git
-cd connperf
+git clone https://github.com/yuuki/tcpulse.git
+cd tcpulse
 
 # Build using Make
 make build
 
 # Or build directly with Go
-go build -o connperf .
+go build -o tcpulse .
 
 # Install to $GOPATH/bin
 go install .
@@ -89,17 +89,17 @@ go install .
 ### Verify Installation
 
 ```bash
-connperf --help
+tcpulse --help
 ```
 
 ## Usage
 
 ```shell-session
-$ connperf --help
-connperf is a measturement tool for TCP connections in Go
+$ tcpulse --help
+tcpulse is a measturement tool for TCP connections in Go
 
 Usage:
-  connperf [command]
+  tcpulse [command]
 
 Available Commands:
   connect     connect connects to a port where 'serve' listens
@@ -107,27 +107,27 @@ Available Commands:
   serve       serve accepts connections
 
 Flags:
-  -h, --help   help for connperf
+  -h, --help   help for tcpulse
 
-Use "connperf [command] --help" for more information about a command.
+Use "tcpulse [command] --help" for more information about a command.
 
-# connperf serve
-$ connperf serve --help
+# tcpulse serve
+$ tcpulse serve --help
 serve accepts connections
 
 Usage:
-  connperf serve [flags]
+  tcpulse serve [flags]
 
 Flags:
   -h, --help                help for serve
   -l, --listenAddr string   listening address (default "0.0.0.0:9100")
 
-# connperf connect
-$ ./connperf connect --help
+# tcpulse connect
+$ ./tcpulse connect --help
 connect connects to a port where 'serve' listens
 
 Usage:
-  connperf connect [flags]
+  tcpulse connect [flags]
 
 Flags:
   -c, --connections int32   Number of connections to keep (only for 'persistent')l (default 10)
@@ -148,29 +148,29 @@ Flags:
 Run as a server.
 
 ```shell-session
-$ connperf serve -l 127.0.0.1:9100
+$ tcpulse serve -l 127.0.0.1:9100
 ```
 
 Run as a client to put a load on the server.
 
 ```shell-session
-$ connperf connect --flavor ephemeral --rate 1000 --duration 15s 127.0.0.1:9100
+$ tcpulse connect --flavor ephemeral --rate 1000 --duration 15s 127.0.0.1:9100
 ```
 
 ```shell-session
-$ connperf connect --flavor persistent --connections 1000 --duration 15s 127.0.0.1:9100
+$ tcpulse connect --flavor persistent --connections 1000 --duration 15s 127.0.0.1:9100
 ```
 
 Run as a UDP client.
 
 ```shell-session
-$ connperf connect --proto udp --rate 1000 --duration 15s 127.0.0.1:9100
+$ tcpulse connect --proto udp --rate 1000 --duration 15s 127.0.0.1:9100
 ```
 
 Output results in JSON Lines format for integration with monitoring tools.
 
 ```shell-session
-$ connperf connect --jsonlines --rate 1000 --duration 10s 127.0.0.1:9100
+$ tcpulse connect --jsonlines --rate 1000 --duration 10s 127.0.0.1:9100
 {"peer":"127.0.0.1:9100","count":9998,"latency_max_us":2156,"latency_min_us":145,"latency_mean_us":234,"latency_90p_us":289,"latency_95p_us":321,"latency_99p_us":456,"rate_per_sec":999.8,"timestamp":"2025-01-07T10:30:00Z"}
 ```
 
@@ -179,7 +179,7 @@ $ connperf connect --jsonlines --rate 1000 --duration 10s 127.0.0.1:9100
 #### Standard Output Format
 
 ```shell-session
-$ connperf connect --proto tcp --flavor ephemeral --rate 1000 --duration 15s 10.0.150.2:9200 10.0.150.2:9300
+$ tcpulse connect --proto tcp --flavor ephemeral --rate 1000 --duration 15s 10.0.150.2:9200 10.0.150.2:9300
 PEER                 CNT        LAT_MAX(µs)     LAT_MIN(µs)     LAT_MEAN(µs)    LAT_90p(µs)     LAT_95p(µs)     LAT_99p(µs)     RATE(/s)
 10.0.150.2:9200      4996       4108            212             367             446             492             773             999.00
 10.0.150.2:9300      4999       10294           219             389             435             470             1595            999.40
@@ -195,7 +195,7 @@ PEER                 CNT        LAT_MAX(µs)     LAT_MIN(µs)     LAT_MEAN(µs) 
 #### JSON Lines Output Format
 
 ```shell-session
-$ connperf connect --jsonlines --proto tcp --flavor ephemeral --rate 1000 --duration 15s 10.0.150.2:9200 10.0.150.2:9300
+$ tcpulse connect --jsonlines --proto tcp --flavor ephemeral --rate 1000 --duration 15s 10.0.150.2:9200 10.0.150.2:9300
 {"peer":"10.0.150.2:9200","count":14799,"latency_max_us":13736,"latency_min_us":223,"latency_mean_us":530,"latency_90p_us":501,"latency_95p_us":953,"latency_99p_us":5989,"rate_per_sec":996.0,"timestamp":"2025-01-07T10:30:00Z"}
 {"peer":"10.0.150.2:9300","count":14809,"latency_max_us":18023,"latency_min_us":212,"latency_mean_us":542,"latency_90p_us":492,"latency_95p_us":1110,"latency_99p_us":5849,"rate_per_sec":996.47,"timestamp":"2025-01-07T10:30:00Z"}
 ```

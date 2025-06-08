@@ -23,6 +23,16 @@ make test
 go test ./...
 ```
 
+## Development Workflow with GitHub
+
+1. Create a new branch for [feature/bug-name] from main branch.
+2. Coding the feature/bug.
+3. Add or fix tests.
+4. Check the code quality with testing, linting and formatting.
+5. Create a pull request.
+6. Review the pull request and fix the comments.
+7. Merge the pull request.
+
 ## Architecture
 
 The project follows a simple flat structure with all Go files in the top-level directory:

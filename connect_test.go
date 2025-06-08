@@ -21,12 +21,12 @@ import (
 // threadSafeWriter wraps an io.Writer with a mutex for safe concurrent access
 type threadSafeWriter struct {
 	writer io.Writer
-	mutex  *sync.Mutex
+	sync.Mutex
 }
 
 func (w *threadSafeWriter) Write(p []byte) (n int, err error) {
-	w.mutex.Lock()
-	defer w.mutex.Unlock()
+	w.Lock()
+	defer w.Unlock()
 	return w.writer.Write(p)
 }
 
@@ -621,7 +621,6 @@ func TestRunStatLinePrinter(t *testing.T) {
 	// Use a wrapper for thread-safe buffer access
 	safeWriter := &threadSafeWriter{
 		writer: &buf,
-		mutex:  &bufMutex,
 	}
 
 	runStatLinePrinter(ctx, safeWriter, addr, 50*time.Millisecond, false)
@@ -634,9 +633,9 @@ func TestRunStatLinePrinter(t *testing.T) {
 	time.Sleep(10 * time.Millisecond) // Give goroutine time to exit
 
 	// Check that some output was generated
-	bufMutex.Lock()
+	safeWriter.Lock()
 	output := buf.String()
-	bufMutex.Unlock()
+	safeWriter.Unlock()
 	
 	if !strings.Contains(output, addr) {
 		t.Errorf("Expected output to contain address %q, got %q", addr, output)

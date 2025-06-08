@@ -10,6 +10,7 @@
   "customizations": {
     "vscode": {
       "extensions": [
+        "github.vscode-github-actions",
         "golang.go",
         "ms-vscode.makefile-tools",
         "anthropic.claude-code"

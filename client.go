@@ -360,10 +360,11 @@ type JSONLinesResult struct {
 
 func printJSONLinesReport(w io.Writer, addrs []string, mergeResultsEachHost bool) {
 	timestamp := time.Now().UTC().Format(time.RFC3339)
+	results := []JSONLinesResult{}
 	
 	if mergeResultsEachHost {
 		ts := getOrRegisterTimer("total.latency", "", mergeResultsEachHost)
-		result := JSONLinesResult{
+		results = append(results, JSONLinesResult{
 			Peer:        fmt.Sprintf("merged(%d hosts)", len(addrs)),
 			Count:       ts.Count(),
 			LatencyMax:  toMicroseconds(ts.Max()),
@@ -374,26 +375,29 @@ func printJSONLinesReport(w io.Writer, addrs []string, mergeResultsEachHost bool
 			Latency99p:  toMicrosecondsf(ts.Percentile(0.99)),
 			Rate:        ts.RateMean(),
 			Timestamp:   timestamp,
+		})
+	} else {
+		for _, addr := range addrs {
+			ts := getOrRegisterTimer("total.latency", addr, mergeResultsEachHost)
+			results = append(results, JSONLinesResult{
+				Peer:        addr,
+				Count:       ts.Count(),
+				LatencyMax:  toMicroseconds(ts.Max()),
+				LatencyMin:  toMicroseconds(ts.Min()),
+				LatencyMean: toMicrosecondsf(ts.Mean()),
+				Latency90p:  toMicrosecondsf(ts.Percentile(0.9)),
+				Latency95p:  toMicrosecondsf(ts.Percentile(0.95)),
+				Latency99p:  toMicrosecondsf(ts.Percentile(0.99)),
+				Rate:        ts.RateMean(),
+				Timestamp:   timestamp,
+			})
 		}
-		json.NewEncoder(w).Encode(result)
-		return
 	}
 	
-	for _, addr := range addrs {
-		ts := getOrRegisterTimer("total.latency", addr, mergeResultsEachHost)
-		result := JSONLinesResult{
-			Peer:        addr,
-			Count:       ts.Count(),
-			LatencyMax:  toMicroseconds(ts.Max()),
-			LatencyMin:  toMicroseconds(ts.Min()),
-			LatencyMean: toMicrosecondsf(ts.Mean()),
-			Latency90p:  toMicrosecondsf(ts.Percentile(0.9)),
-			Latency95p:  toMicrosecondsf(ts.Percentile(0.95)),
-			Latency99p:  toMicrosecondsf(ts.Percentile(0.99)),
-			Rate:        ts.RateMean(),
-			Timestamp:   timestamp,
+	for _, result := range results {
+		if err := json.NewEncoder(w).Encode(result); err != nil {
+			slog.Error("Failed to encode JSON result", "error", err)
 		}
-		json.NewEncoder(w).Encode(result)
 	}
 }
 

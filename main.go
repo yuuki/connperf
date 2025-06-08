@@ -25,7 +25,7 @@ import (
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "tcpulse",
-	Short: "tcpulse is a measurement tool for TCP connections in Go",
+	Short: "tcpulse is a concurrent TCP/UDP load generator that provides fine-grained, flow-level control",
 }
 
 func main() {

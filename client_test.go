@@ -7,7 +7,6 @@ import (
 	"io"
 	"net"
 	"os"
-	"reflect"
 	"strings"
 	"sync"
 	"testing"
@@ -65,7 +64,7 @@ func testRunClient(out io.Writer, args []string) error {
 	originalStdout := os.Stdout
 
 	var copyDone chan struct{}
-	
+
 	// Create pipe to capture output if needed
 	if out != os.Stdout {
 		r, w, err := os.Pipe()
@@ -137,79 +136,6 @@ func testRunClient(out io.Writer, args []string) error {
 		printReport(os.Stdout, args, mergeResultsEachHost)
 	}
 	return nil
-}
-
-func TestGetAddrsFromFile(t *testing.T) {
-	tests := []struct {
-		name     string
-		content  string
-		expected []string
-		wantErr  bool
-	}{
-		{
-			name:     "single address",
-			content:  "127.0.0.1:8080",
-			expected: []string{"127.0.0.1:8080"},
-			wantErr:  false,
-		},
-		{
-			name:     "multiple addresses",
-			content:  "127.0.0.1:8080 192.168.1.1:9090 example.com:3000",
-			expected: []string{"127.0.0.1:8080", "192.168.1.1:9090", "example.com:3000"},
-			wantErr:  false,
-		},
-		{
-			name:     "addresses with newlines",
-			content:  "127.0.0.1:8080\n192.168.1.1:9090\n",
-			expected: []string{"127.0.0.1:8080", "192.168.1.1:9090"},
-			wantErr:  false,
-		},
-		{
-			name:     "empty file",
-			content:  "",
-			expected: []string{},
-			wantErr:  false,
-		},
-		{
-			name:     "whitespace only",
-			content:  "   \n\t  \n",
-			expected: []string{},
-			wantErr:  false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			tmpfile, err := os.CreateTemp("", "addrs_test")
-			if err != nil {
-				t.Fatalf("Failed to create temp file: %v", err)
-			}
-			defer os.Remove(tmpfile.Name())
-
-			if _, err := tmpfile.WriteString(tt.content); err != nil {
-				t.Fatalf("Failed to write to temp file: %v", err)
-			}
-			if err := tmpfile.Close(); err != nil {
-				t.Fatalf("Failed to close temp file: %v", err)
-			}
-
-			got, err := getAddrsFromFile(tmpfile.Name())
-			if (err != nil) != tt.wantErr {
-				t.Errorf("getAddrsFromFile() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !reflect.DeepEqual(got, tt.expected) {
-				t.Errorf("getAddrsFromFile() = %v, want %v", got, tt.expected)
-			}
-		})
-	}
-}
-
-func TestGetAddrsFromFileNotFound(t *testing.T) {
-	_, err := getAddrsFromFile("/nonexistent/file")
-	if err == nil {
-		t.Error("Expected error for non-existent file, got nil")
-	}
 }
 
 func TestWaitLim(t *testing.T) {

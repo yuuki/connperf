@@ -1,3 +1,4 @@
-/connperf
 .specstory/**
 .claude/settings.local.json
+
+/tcpulse

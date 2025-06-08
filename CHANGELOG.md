@@ -1,5 +1,9 @@
 # Changelog
 
+## [v0.8.0](https://github.com/yuuki/tcpulse/compare/v0.7.2...v0.8.0) - 2025-06-08
+- refactor: replace cobra subcommands with pflag/viper flags by @yuuki in https://github.com/yuuki/tcpulse/pull/28
+- refactor: consolidate utility functions and add comprehensive main.go tests by @yuuki in https://github.com/yuuki/tcpulse/pull/29
+
 ## [v0.7.3](https://github.com/yuuki/tcpulse/compare/v0.7.2...v0.7.3) - 2025-06-08
 - refactor: replace cobra subcommands with pflag/viper flags by @yuuki in https://github.com/yuuki/tcpulse/pull/28
 

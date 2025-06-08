@@ -14,7 +14,10 @@
       "Bash(./connperf --help)",
       "Bash(grep:*)",
       "Bash(make test:*)",
-      "Bash(rg:*)"
+      "Bash(rg:*)",
+      "Bash(make:*)",
+      "Bash(gh pr view:*)",
+      "Bash(gh api:*)"
     ],
     "deny": []
   }

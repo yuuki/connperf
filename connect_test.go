@@ -4,10 +4,12 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"reflect"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -15,6 +17,18 @@ import (
 	"github.com/spf13/cobra"
 	"go.uber.org/ratelimit"
 )
+
+// threadSafeWriter wraps an io.Writer with a mutex for safe concurrent access
+type threadSafeWriter struct {
+	writer io.Writer
+	sync.Mutex
+}
+
+func (w *threadSafeWriter) Write(p []byte) (n int, err error) {
+	w.Lock()
+	defer w.Unlock()
+	return w.writer.Write(p)
+}
 
 func TestGetAddrsFromFile(t *testing.T) {
 	tests := []struct {
@@ -603,13 +617,25 @@ func TestRunStatLinePrinter(t *testing.T) {
 	timer := getOrRegisterTimer("tick.latency", addr, false)
 	timer.Update(1 * time.Millisecond)
 
-	runStatLinePrinter(ctx, &buf, addr, 50*time.Millisecond, false)
+	// Use a wrapper for thread-safe buffer access
+	safeWriter := &threadSafeWriter{
+		writer: &buf,
+	}
+
+	runStatLinePrinter(ctx, safeWriter, addr, 50*time.Millisecond, false)
 
 	// Wait for at least one interval
 	time.Sleep(60 * time.Millisecond)
 
+	// Cancel context to stop the goroutine
+	cancel()
+	time.Sleep(10 * time.Millisecond) // Give goroutine time to exit
+
 	// Check that some output was generated
+	safeWriter.Lock()
 	output := buf.String()
+	safeWriter.Unlock()
+	
 	if !strings.Contains(output, addr) {
 		t.Errorf("Expected output to contain address %q, got %q", addr, output)
 	}
@@ -622,18 +648,38 @@ func TestSetPprofServer(t *testing.T) {
 	originalPprof := pprof
 	originalAddr := pprofAddr
 	defer func() {
+		pprofMutex.Lock()
 		pprof = originalPprof
 		pprofAddr = originalAddr
+		pprofMutex.Unlock()
 	}()
 
 	// Test with pprof disabled
+	pprofMutex.Lock()
 	pprof = false
+	pprofMutex.Unlock()
 	setPprofServer() // Should not panic or start server
 
 	// Test with pprof enabled but invalid address
+	pprofMutex.Lock()
 	pprof = true
 	pprofAddr = "invalid:address:format"
-	setPprofServer() // Should not panic but server will fail to start
+	pprofMutex.Unlock()
+	
+	// Use a brief timeout to avoid hanging on invalid address
+	done := make(chan bool, 1)
+	go func() {
+		setPprofServer()
+		done <- true
+	}()
+	
+	// Give a short time for the goroutine to start and potentially fail
+	select {
+	case <-done:
+		// Function completed (expected for invalid address)
+	case <-time.After(100 * time.Millisecond):
+		// Timeout is fine, the goroutine should still be running but failing
+	}
 
 	// We can't easily test successful server start without affecting other tests
 	// that might be using the same port, so we just ensure no panic occurs

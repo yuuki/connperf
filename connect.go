@@ -22,6 +22,7 @@ import (
 	"net/http"
 	_ "net/http/pprof"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
@@ -39,6 +40,8 @@ var (
 	messageBytes         int32
 	showOnlyResults      bool
 	mergeResultsEachHost bool
+	jsonlines            bool
+	pprofMutex           sync.RWMutex
 	pprof                bool
 	pprofAddr            string
 	addrsFile            bool
@@ -97,6 +100,7 @@ func init() {
 	connectCmd.Flags().Int32Var(&messageBytes, "message-bytes", 64, "TCP/UDP message size (bytes)")
 	connectCmd.Flags().BoolVar(&showOnlyResults, "show-only-results", false, "print only results of measurement stats")
 	connectCmd.Flags().BoolVar(&mergeResultsEachHost, "merge-results-each-host", false, "merge results of each host (with --show-only-results)")
+	connectCmd.Flags().BoolVar(&jsonlines, "jsonlines", false, "output results in JSON Lines format")
 	connectCmd.Flags().BoolVar(&addrsFile, "addrs-file", false, "enable to pass a file including a pair of addresses and ports to an argument")
 
 	connectCmd.Flags().BoolVar(&pprof, "enable-pprof", false, "enable pprof profiling")
@@ -104,11 +108,16 @@ func init() {
 }
 
 func setPprofServer() {
-	if !pprof {
+	pprofMutex.RLock()
+	enablePprof := pprof
+	addr := pprofAddr
+	pprofMutex.RUnlock()
+	
+	if !enablePprof {
 		return
 	}
 	go func() {
-		if err := http.ListenAndServe(pprofAddr, nil); err != nil {
+		if err := http.ListenAndServe(addr, nil); err != nil {
 			slog.Error("pprof server error", "error", err)
 		}
 	}()
@@ -131,7 +140,9 @@ func runConnectCmd(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	printStatHeader(cmd.OutOrStdout())
+	if !jsonlines {
+		printStatHeader(cmd.OutOrStdout())
+	}
 
 	config := ClientConfig{
 		Protocol:             protocol,
@@ -141,6 +152,7 @@ func runConnectCmd(cmd *cobra.Command, args []string) error {
 		Duration:             duration,
 		MessageBytes:         messageBytes,
 		MergeResultsEachHost: mergeResultsEachHost,
+		JSONLines:            jsonlines,
 	}
 
 	client := NewClient(config)
@@ -149,7 +161,7 @@ func runConnectCmd(cmd *cobra.Command, args []string) error {
 	for _, addr := range addrs {
 		addr := addr
 		eg.Go(func() error {
-			if showOnlyResults {
+			if showOnlyResults || jsonlines {
 				return client.ConnectToAddresses(ctx, []string{addr})
 			}
 			runStatLinePrinter(ctx, cmd.OutOrStdout(), addr, intervalStats, mergeResultsEachHost)
@@ -161,6 +173,10 @@ func runConnectCmd(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("connection error: %w", err)
 	}
 
-	printReport(cmd.OutOrStdout(), addrs, mergeResultsEachHost)
+	if jsonlines {
+		printJSONLinesReport(cmd.OutOrStdout(), addrs, mergeResultsEachHost)
+	} else {
+		printReport(cmd.OutOrStdout(), addrs, mergeResultsEachHost)
+	}
 	return nil
 }

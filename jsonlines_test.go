@@ -70,11 +70,11 @@ func TestPrintJSONLinesReport_MultipleHosts(t *testing.T) {
 	}()
 
 	addrs := []string{"localhost:8080", "localhost:8081"}
-	
+
 	for i, addr := range addrs {
 		timer := metrics.NewTimer()
 		metrics.Register("total.latency."+addr, timer)
-		
+
 		for j := 0; j < (i+1)*2; j++ {
 			timer.Update(time.Duration(100*(j+1)) * time.Microsecond)
 		}
@@ -224,7 +224,7 @@ func TestJSONLinesResultFields(t *testing.T) {
 	}
 
 	expectedFields := []string{"peer", "count", "latency_max_us", "latency_min_us", "latency_mean_us", "latency_90p_us", "latency_95p_us", "latency_99p_us", "rate_per_sec", "timestamp"}
-	
+
 	var jsonMap map[string]interface{}
 	if err := json.Unmarshal(buf.Bytes(), &jsonMap); err != nil {
 		t.Fatalf("Failed to unmarshal JSON to map: %v", err)

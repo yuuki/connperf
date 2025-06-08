@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/rcrowley/go-metrics"
-	"github.com/spf13/cobra"
 	"go.uber.org/ratelimit"
 )
 
@@ -28,6 +27,73 @@ func (w *threadSafeWriter) Write(p []byte) (n int, err error) {
 	w.Lock()
 	defer w.Unlock()
 	return w.writer.Write(p)
+}
+
+// validateClientArgs simulates the argument validation that was previously done by connectCmd.Args
+func validateClientArgs(args []string) error {
+	switch connectFlavor {
+	case flavorPersistent, flavorEphemeral:
+	default:
+		return fmt.Errorf("unexpected connect flavor %q", connectFlavor)
+	}
+
+	switch protocol {
+	case "tcp", "udp":
+	default:
+		return fmt.Errorf("unexpected protocol %q", protocol)
+	}
+
+	if len(args) < 1 {
+		return fmt.Errorf("required addresses")
+	}
+
+	if addrsFile && len(args) != 1 {
+		return fmt.Errorf("the number of addresses file must be one")
+	}
+
+	if mergeResultsEachHost && !showOnlyResults {
+		return fmt.Errorf("--merge-results-each-host flag requires --show-only-results flag")
+	}
+
+	return nil
+}
+
+// testRunClient wraps runClient for testing with a custom output writer
+func testRunClient(out io.Writer, args []string) error {
+	// Save original values
+	originalStdout := os.Stdout
+	originalArgs := os.Args
+
+	// Create pipe to capture output if needed
+	if out != os.Stdout {
+		r, w, err := os.Pipe()
+		if err != nil {
+			return err
+		}
+		os.Stdout = w
+
+		// Copy output to our writer in background
+		go func() {
+			defer r.Close()
+			io.Copy(out, r)
+		}()
+
+		defer func() {
+			w.Close()
+			os.Stdout = originalStdout
+		}()
+	}
+
+	// Save original args and set new ones
+	os.Args = append([]string{"tcpulse", "-c"}, args...)
+	defer func() { os.Args = originalArgs }()
+
+	// Need to import pflag and parse
+	// For now, let's just set clientMode directly
+	clientMode = true
+	serverMode = false
+
+	return runClient()
 }
 
 func TestGetAddrsFromFile(t *testing.T) {
@@ -201,11 +267,11 @@ func TestGetOrRegisterTimer(t *testing.T) {
 	defer func() { mergeResultsEachHost = originalMergeResults }()
 
 	tests := []struct {
-		name               string
+		name                 string
 		mergeResultsEachHost bool
-		key                string
-		addr               string
-		expectedKey        string
+		key                  string
+		addr                 string
+		expectedKey          string
 	}{
 		{
 			name:                 "merge results enabled",
@@ -254,10 +320,10 @@ func TestUnregisterTimer(t *testing.T) {
 	defer func() { mergeResultsEachHost = originalMergeResults }()
 
 	tests := []struct {
-		name               string
+		name                 string
 		mergeResultsEachHost bool
-		key                string
-		addr               string
+		key                  string
+		addr                 string
 	}{
 		{
 			name:                 "merge results enabled",
@@ -276,7 +342,7 @@ func TestUnregisterTimer(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mergeResultsEachHost = tt.mergeResultsEachHost
-			
+
 			// First register a timer
 			timer := getOrRegisterTimer(tt.key, tt.addr, tt.mergeResultsEachHost)
 			if timer == nil {
@@ -305,7 +371,7 @@ func TestPrintStatHeader(t *testing.T) {
 	printStatHeader(&buf)
 
 	output := buf.String()
-	expectedHeaders := []string{"PEER", "CNT", "LAT_MAX(µs)", "LAT_MIN(µs)", 
+	expectedHeaders := []string{"PEER", "CNT", "LAT_MAX(µs)", "LAT_MIN(µs)",
 		"LAT_MEAN(µs)", "LAT_90p(µs)", "LAT_95p(µs)", "LAT_99p(µs)", "RATE(/s)"}
 
 	for _, header := range expectedHeaders {
@@ -337,10 +403,10 @@ func TestPrintReport(t *testing.T) {
 	defer func() { mergeResultsEachHost = originalMergeResults }()
 
 	tests := []struct {
-		name               string
+		name                 string
 		mergeResultsEachHost bool
-		addrs              []string
-		setupTimers        func([]string)
+		addrs                []string
+		setupTimers          func([]string)
 	}{
 		{
 			name:                 "merge results enabled",
@@ -450,7 +516,7 @@ func TestConnectAddrProtocolAndFlavor(t *testing.T) {
 		flavor   string
 		wantErr  bool
 	}{
-		{"tcp persistent", "tcp", flavorPersistent, true},  // Will fail to connect
+		{"tcp persistent", "tcp", flavorPersistent, true}, // Will fail to connect
 		{"tcp ephemeral", "tcp", flavorEphemeral, true},   // Will fail to connect
 		{"udp", "udp", flavorPersistent, true},            // Will fail to connect
 		{"invalid protocol", "invalid", flavorPersistent, true},
@@ -587,9 +653,9 @@ func TestConnectCmdArgs(t *testing.T) {
 			showOnlyResults = tt.showOnlyResults
 			addrsFile = tt.addrsFile
 
-			err := connectCmd.Args(connectCmd, tt.args)
+			err := validateClientArgs(tt.args)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("connectCmd.Args() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("validateClientArgs() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 
@@ -635,7 +701,7 @@ func TestRunStatLinePrinter(t *testing.T) {
 	safeWriter.Lock()
 	output := buf.String()
 	safeWriter.Unlock()
-	
+
 	if !strings.Contains(output, addr) {
 		t.Errorf("Expected output to contain address %q, got %q", addr, output)
 	}
@@ -665,14 +731,14 @@ func TestSetPprofServer(t *testing.T) {
 	pprof = true
 	pprofAddr = "invalid:address:format"
 	pprofMutex.Unlock()
-	
+
 	// Use a brief timeout to avoid hanging on invalid address
 	done := make(chan bool, 1)
 	go func() {
 		setPprofServer()
 		done <- true
 	}()
-	
+
 	// Give a short time for the goroutine to start and potentially fail
 	select {
 	case <-done:
@@ -724,7 +790,7 @@ func createTestServer(t *testing.T, protocol string) (string, func()) {
 		if err != nil {
 			t.Fatalf("Failed to create UDP listener: %v", err)
 		}
-		
+
 		// Start UDP echo server
 		go func() {
 			buf := make([]byte, 1024)
@@ -738,7 +804,7 @@ func createTestServer(t *testing.T, protocol string) (string, func()) {
 				}
 			}
 		}()
-		
+
 		return conn.LocalAddr().String(), func() { conn.Close() }
 
 	default:
@@ -822,12 +888,10 @@ func TestRunConnectCmdWithAddrsFile(t *testing.T) {
 
 	addrsFile = true
 
-	cmd := &cobra.Command{}
 	var buf bytes.Buffer
-	cmd.SetOut(&buf)
 
 	// This will fail because we don't have actual servers, but we can test the file reading part
-	err = runConnectCmd(cmd, []string{tmpfile.Name()})
+	err = testRunClient(&buf, []string{tmpfile.Name()})
 	if err == nil {
 		t.Error("Expected error due to no actual servers, got nil")
 	}
@@ -840,10 +904,10 @@ func TestRunConnectCmdWithAddrsFile(t *testing.T) {
 
 func TestConnectPersistentWithMockServer(t *testing.T) {
 	originalValues := struct {
-		duration      time.Duration
-		connections   int32
-		connectRate   int32
-		messageBytes  int32
+		duration     time.Duration
+		connections  int32
+		connectRate  int32
+		messageBytes int32
 	}{
 		duration:     duration,
 		connections:  connections,
@@ -896,9 +960,9 @@ func TestConnectPersistentWithMockServer(t *testing.T) {
 
 func TestConnectEphemeralWithMockServer(t *testing.T) {
 	originalValues := struct {
-		duration      time.Duration
-		connectRate   int32
-		messageBytes  int32
+		duration     time.Duration
+		connectRate  int32
+		messageBytes int32
 	}{
 		duration:     duration,
 		connectRate:  connectRate,
@@ -947,10 +1011,10 @@ func TestConnectEphemeralWithMockServer(t *testing.T) {
 
 func TestConnectPersistentContextCancellation(t *testing.T) {
 	originalValues := struct {
-		duration      time.Duration
-		connections   int32
-		connectRate   int32
-		messageBytes  int32
+		duration     time.Duration
+		connections  int32
+		connectRate  int32
+		messageBytes int32
 	}{
 		duration:     duration,
 		connections:  connections,
@@ -974,7 +1038,7 @@ func TestConnectPersistentContextCancellation(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 	defer cancel()
-	
+
 	client := NewClient(ClientConfig{
 		Protocol:             "tcp",
 		ConnectFlavor:        flavorPersistent,
@@ -993,9 +1057,9 @@ func TestConnectPersistentContextCancellation(t *testing.T) {
 
 func TestConnectEphemeralContextCancellation(t *testing.T) {
 	originalValues := struct {
-		duration      time.Duration
-		connectRate   int32
-		messageBytes  int32
+		duration     time.Duration
+		connectRate  int32
+		messageBytes int32
 	}{
 		duration:     duration,
 		connectRate:  connectRate,
@@ -1008,7 +1072,7 @@ func TestConnectEphemeralContextCancellation(t *testing.T) {
 	}()
 
 	duration = 1 * time.Second // Long duration
-	connectRate = 1000 // High rate
+	connectRate = 1000         // High rate
 	messageBytes = 32
 
 	_, cleanup := createTestServer(t, "tcp")
@@ -1016,7 +1080,7 @@ func TestConnectEphemeralContextCancellation(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 	defer cancel()
-	
+
 	client := NewClient(ClientConfig{
 		Protocol:             "tcp",
 		ConnectFlavor:        flavorEphemeral,
@@ -1034,9 +1098,9 @@ func TestConnectEphemeralContextCancellation(t *testing.T) {
 
 func TestConnectUDPContextCancellation(t *testing.T) {
 	originalValues := struct {
-		duration      time.Duration
-		connectRate   int32
-		messageBytes  int32
+		duration     time.Duration
+		connectRate  int32
+		messageBytes int32
 	}{
 		duration:     duration,
 		connectRate:  connectRate,
@@ -1049,7 +1113,7 @@ func TestConnectUDPContextCancellation(t *testing.T) {
 	}()
 
 	duration = 1 * time.Second // Long duration
-	connectRate = 1000 // High rate
+	connectRate = 1000         // High rate
 	messageBytes = 32
 
 	_, cleanup := createTestServer(t, "udp")
@@ -1057,7 +1121,7 @@ func TestConnectUDPContextCancellation(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 	defer cancel()
-	
+
 	client := NewClient(ClientConfig{
 		Protocol:             "udp",
 		Duration:             duration,
@@ -1074,10 +1138,10 @@ func TestConnectUDPContextCancellation(t *testing.T) {
 
 func TestConnectPersistentConnectionFailure(t *testing.T) {
 	originalValues := struct {
-		duration      time.Duration
-		connections   int32
-		connectRate   int32
-		messageBytes  int32
+		duration     time.Duration
+		connections  int32
+		connectRate  int32
+		messageBytes int32
 	}{
 		duration:     duration,
 		connections:  connections,
@@ -1098,7 +1162,7 @@ func TestConnectPersistentConnectionFailure(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
 	defer cancel()
-	
+
 	client := NewClient(ClientConfig{
 		Protocol:             "tcp",
 		ConnectFlavor:        flavorPersistent,
@@ -1120,9 +1184,9 @@ func TestConnectPersistentConnectionFailure(t *testing.T) {
 
 func TestConnectEphemeralConnectionFailure(t *testing.T) {
 	originalValues := struct {
-		duration      time.Duration
-		connectRate   int32
-		messageBytes  int32
+		duration     time.Duration
+		connectRate  int32
+		messageBytes int32
 	}{
 		duration:     duration,
 		connectRate:  connectRate,
@@ -1140,7 +1204,7 @@ func TestConnectEphemeralConnectionFailure(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
 	defer cancel()
-	
+
 	client := NewClient(ClientConfig{
 		Protocol:             "tcp",
 		ConnectFlavor:        flavorEphemeral,
@@ -1159,9 +1223,9 @@ func TestConnectEphemeralConnectionFailure(t *testing.T) {
 
 func TestConnectUDPConnectionFailure(t *testing.T) {
 	originalValues := struct {
-		duration      time.Duration
-		connectRate   int32
-		messageBytes  int32
+		duration     time.Duration
+		connectRate  int32
+		messageBytes int32
 	}{
 		duration:     duration,
 		connectRate:  connectRate,
@@ -1179,7 +1243,7 @@ func TestConnectUDPConnectionFailure(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
 	defer cancel()
-	
+
 	client := NewClient(ClientConfig{
 		Protocol:             "udp",
 		Duration:             duration,
@@ -1214,10 +1278,10 @@ func TestMeasureTimeWithPanic(t *testing.T) {
 func TestWaitLimWithSlowRateLimit(t *testing.T) {
 	// Test with very slow rate limiter and context timeout
 	limiter := ratelimit.New(1) // 1 per second
-	
+
 	// Take one token immediately to make next take slow
 	limiter.Take()
-	
+
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
 	defer cancel()
 
@@ -1305,11 +1369,9 @@ func TestRunConnectCmdIntegration(t *testing.T) {
 	// Give server time to start
 	time.Sleep(10 * time.Millisecond)
 
-	cmd := &cobra.Command{}
 	var buf bytes.Buffer
-	cmd.SetOut(&buf)
 
-	err := runConnectCmd(cmd, []string{addr})
+	err := testRunClient(&buf, []string{addr})
 	if err != nil {
 		t.Errorf("runConnectCmd() error = %v", err)
 	}

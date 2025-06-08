@@ -361,7 +361,7 @@ type JSONLinesResult struct {
 func printJSONLinesReport(w io.Writer, addrs []string, mergeResultsEachHost bool) {
 	timestamp := time.Now().UTC().Format(time.RFC3339)
 	results := []JSONLinesResult{}
-	
+
 	if mergeResultsEachHost {
 		ts := getOrRegisterTimer("total.latency", "", mergeResultsEachHost)
 		results = append(results, JSONLinesResult{
@@ -393,7 +393,7 @@ func printJSONLinesReport(w io.Writer, addrs []string, mergeResultsEachHost bool
 			})
 		}
 	}
-	
+
 	for _, result := range results {
 		if err := json.NewEncoder(w).Encode(result); err != nil {
 			slog.Error("Failed to encode JSON result", "error", err)

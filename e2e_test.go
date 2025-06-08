@@ -4,14 +4,56 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"net"
+	"os"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
-	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 )
+
+// testRunClientE2E wraps runClient for e2e testing
+func testRunClientE2E(out io.Writer, args []string) error {
+	// Save original values
+	originalStdout := os.Stdout
+	originalArgs := os.Args
+
+	// Create pipe to capture output if needed
+	if out != os.Stdout {
+		r, w, err := os.Pipe()
+		if err != nil {
+			return err
+		}
+		os.Stdout = w
+
+		// Copy output to our writer in background
+		go func() {
+			defer r.Close()
+			io.Copy(out, r)
+		}()
+
+		defer func() {
+			w.Close()
+			os.Stdout = originalStdout
+		}()
+	}
+
+	// Simulate command line args for client mode
+	os.Args = append([]string{"tcpulse", "-c"}, args...)
+	defer func() { os.Args = originalArgs }()
+
+	// Parse flags to set the variables
+	pflag.CommandLine.Parse(os.Args[1:])
+
+	// Ensure client mode is enabled
+	clientMode = true
+	serverMode = false
+
+	return runClient()
+}
 
 // TestE2ETCPServerClientEcho tests end-to-end TCP communication
 func TestE2ETCPServerClientEcho(t *testing.T) {
@@ -41,7 +83,7 @@ func TestE2ETCPServerClientEcho(t *testing.T) {
 		defer serverWg.Done()
 		server := NewServer(ServerConfig{
 			ListenAddrs: []string{addr},
-			Protocol: "tcp",
+			Protocol:    "tcp",
 		})
 		if err := server.serveTCP(serverCtx); err != nil {
 			t.Logf("Server completed: %v", err)
@@ -72,10 +114,8 @@ func TestE2ETCPServerClientEcho(t *testing.T) {
 
 	// Run client
 	var clientOutput bytes.Buffer
-	clientCmd := &cobra.Command{}
-	clientCmd.SetOut(&clientOutput)
 
-	err = runConnectCmd(clientCmd, []string{addr})
+	err = testRunClientE2E(&clientOutput, []string{addr})
 	if err != nil {
 		t.Errorf("Client error: %v", err)
 	}
@@ -125,7 +165,7 @@ func TestE2EUDPServerClientEcho(t *testing.T) {
 		defer serverWg.Done()
 		server := NewServer(ServerConfig{
 			ListenAddrs: []string{addr},
-			Protocol: "udp",
+			Protocol:    "udp",
 		})
 		if err := server.serveUDP(serverCtx); err != nil {
 			t.Logf("UDP Server completed: %v", err)
@@ -155,10 +195,8 @@ func TestE2EUDPServerClientEcho(t *testing.T) {
 
 	// Run client
 	var clientOutput bytes.Buffer
-	clientCmd := &cobra.Command{}
-	clientCmd.SetOut(&clientOutput)
 
-	err = runConnectCmd(clientCmd, []string{addr})
+	err = testRunClientE2E(&clientOutput, []string{addr})
 	if err != nil {
 		t.Errorf("UDP Client error: %v", err)
 	}
@@ -205,7 +243,7 @@ func TestE2ETCPPersistentMode(t *testing.T) {
 		defer serverWg.Done()
 		server := NewServer(ServerConfig{
 			ListenAddrs: []string{addr},
-			Protocol: "tcp",
+			Protocol:    "tcp",
 		})
 		if err := server.serveTCP(serverCtx); err != nil {
 			t.Logf("Persistent mode server completed: %v", err)
@@ -229,10 +267,8 @@ func TestE2ETCPPersistentMode(t *testing.T) {
 
 	// Run client
 	var clientOutput bytes.Buffer
-	clientCmd := &cobra.Command{}
-	clientCmd.SetOut(&clientOutput)
 
-	err := runConnectCmd(clientCmd, []string{addr})
+	err := testRunClientE2E(&clientOutput, []string{addr})
 	if err != nil {
 		t.Errorf("Persistent client error: %v", err)
 	}
@@ -276,7 +312,7 @@ func TestE2ETCPEphemeralMode(t *testing.T) {
 		defer serverWg.Done()
 		server := NewServer(ServerConfig{
 			ListenAddrs: []string{addr},
-			Protocol: "tcp",
+			Protocol:    "tcp",
 		})
 		if err := server.serveTCP(serverCtx); err != nil {
 			t.Logf("Ephemeral mode server completed: %v", err)
@@ -299,10 +335,8 @@ func TestE2ETCPEphemeralMode(t *testing.T) {
 
 	// Run client
 	var clientOutput bytes.Buffer
-	clientCmd := &cobra.Command{}
-	clientCmd.SetOut(&clientOutput)
 
-	err := runConnectCmd(clientCmd, []string{addr})
+	err := testRunClientE2E(&clientOutput, []string{addr})
 	if err != nil {
 		t.Errorf("Ephemeral client error: %v", err)
 	}
@@ -348,7 +382,7 @@ func TestE2EMultipleAddresses(t *testing.T) {
 		defer serverWg.Done()
 		server := NewServer(ServerConfig{
 			ListenAddrs: listenAddrs,
-			Protocol: "tcp",
+			Protocol:    "tcp",
 		})
 		if err := server.serveTCP(serverCtx); err != nil {
 			t.Logf("Multi-address servers completed: %v", err)
@@ -372,10 +406,8 @@ func TestE2EMultipleAddresses(t *testing.T) {
 
 	// Run client
 	var clientOutput bytes.Buffer
-	clientCmd := &cobra.Command{}
-	clientCmd.SetOut(&clientOutput)
 
-	err := runConnectCmd(clientCmd, []string{addr1, addr2})
+	err := testRunClientE2E(&clientOutput, []string{addr1, addr2})
 	if err != nil {
 		t.Errorf("Multi-address client error: %v", err)
 	}
@@ -424,7 +456,7 @@ func TestE2EMergedResults(t *testing.T) {
 		defer serverWg.Done()
 		server := NewServer(ServerConfig{
 			ListenAddrs: listenAddrs,
-			Protocol: "tcp",
+			Protocol:    "tcp",
 		})
 		if err := server.serveTCP(serverCtx); err != nil {
 			t.Logf("Merged results servers completed: %v", err)
@@ -448,10 +480,8 @@ func TestE2EMergedResults(t *testing.T) {
 
 	// Run client
 	var clientOutput bytes.Buffer
-	clientCmd := &cobra.Command{}
-	clientCmd.SetOut(&clientOutput)
 
-	err := runConnectCmd(clientCmd, []string{addr1, addr2})
+	err := testRunClientE2E(&clientOutput, []string{addr1, addr2})
 	if err != nil {
 		t.Errorf("Merged results client error: %v", err)
 	}
@@ -495,7 +525,7 @@ func TestE2ELargeMessageSize(t *testing.T) {
 		defer serverWg.Done()
 		server := NewServer(ServerConfig{
 			ListenAddrs: []string{addr},
-			Protocol: "tcp",
+			Protocol:    "tcp",
 		})
 		if err := server.serveTCP(serverCtx); err != nil {
 			t.Logf("Large message server completed: %v", err)
@@ -518,10 +548,8 @@ func TestE2ELargeMessageSize(t *testing.T) {
 
 	// Run client
 	var clientOutput bytes.Buffer
-	clientCmd := &cobra.Command{}
-	clientCmd.SetOut(&clientOutput)
 
-	err := runConnectCmd(clientCmd, []string{addr})
+	err := testRunClientE2E(&clientOutput, []string{addr})
 	if err != nil {
 		t.Errorf("Large message client error: %v", err)
 	}
@@ -565,7 +593,7 @@ func TestE2EServerShutdown(t *testing.T) {
 		defer serverWg.Done()
 		server := NewServer(ServerConfig{
 			ListenAddrs: []string{addr},
-			Protocol: "tcp",
+			Protocol:    "tcp",
 		})
 		if err := server.serveTCP(serverCtx); err != nil {
 			t.Logf("Shutdown test server completed: %v", err)
@@ -594,9 +622,7 @@ func TestE2EServerShutdown(t *testing.T) {
 	go func() {
 		defer clientWg.Done()
 		var clientOutput bytes.Buffer
-		clientCmd := &cobra.Command{}
-		clientCmd.SetOut(&clientOutput)
-		clientErr = runConnectCmd(clientCmd, []string{addr})
+		clientErr = testRunClientE2E(&clientOutput, []string{addr})
 	}()
 
 	// Let client run for a bit, then shutdown server
@@ -672,24 +698,24 @@ func TestE2EAllProtocols(t *testing.T) {
 	serverWg.Add(2) // TCP and UDP servers
 
 	serverCtx, serverCancel := context.WithCancel(ctx)
-	
+
 	// Start both TCP and UDP servers
 	go func() {
 		defer serverWg.Done()
 		server := NewServer(ServerConfig{
 			ListenAddrs: []string{addr},
-			Protocol: "tcp",
+			Protocol:    "tcp",
 		})
 		if err := server.serveTCP(serverCtx); err != nil {
 			t.Logf("All protocols TCP server completed: %v", err)
 		}
 	}()
-	
+
 	go func() {
 		defer serverWg.Done()
 		server := NewServer(ServerConfig{
 			ListenAddrs: []string{addr},
-			Protocol: "udp",
+			Protocol:    "udp",
 		})
 		if err := server.serveUDP(serverCtx); err != nil {
 			t.Logf("All protocols UDP server completed: %v", err)
@@ -711,22 +737,18 @@ func TestE2EAllProtocols(t *testing.T) {
 	showOnlyResults = true
 
 	var tcpOutput bytes.Buffer
-	tcpCmd := &cobra.Command{}
-	tcpCmd.SetOut(&tcpOutput)
 
-	err := runConnectCmd(tcpCmd, []string{addr})
+	err := testRunClientE2E(&tcpOutput, []string{addr})
 	if err != nil {
 		t.Errorf("TCP client error with all protocols server: %v", err)
 	}
 
 	// Test UDP client
 	protocol = "udp"
-	
-	var udpOutput bytes.Buffer
-	udpCmd := &cobra.Command{}
-	udpCmd.SetOut(&udpOutput)
 
-	err = runConnectCmd(udpCmd, []string{addr})
+	var udpOutput bytes.Buffer
+
+	err = testRunClientE2E(&udpOutput, []string{addr})
 	if err != nil {
 		t.Errorf("UDP client error with all protocols server: %v", err)
 	}
@@ -734,7 +756,7 @@ func TestE2EAllProtocols(t *testing.T) {
 	// Verify both protocols worked
 	tcpOut := tcpOutput.String()
 	udpOut := udpOutput.String()
-	
+
 	if !strings.Contains(tcpOut, addr) {
 		t.Errorf("Expected TCP address in output, got: %s", tcpOut)
 	}

@@ -25,7 +25,7 @@ go test ./...
 
 ## Development Workflow with GitHub
 
-1. Create a new branch for [feature/bug-name] from main branch.
+1. Create a new branch for [feature/bug/refactor-name] from main branch.
 2. Coding the feature/bug.
 3. Add or fix tests.
 4. Check the code quality with testing, linting and formatting.
@@ -37,9 +37,7 @@ go test ./...
 
 The project follows a simple flat structure with all Go files in the top-level directory:
 
-- `main.go`: Entry point defining root Cobra command
-- `serve.go`: Server subcommand implementation
-- `connect.go`: Client subcommand implementation
+- `main.go`: Entry point with flag-based CLI using pflag and viper (-c for client, -s for server)
 - `server.go`: TCP/UDP server logic with context-based cancellation and errgroup for concurrent handling
 - `client.go`: Client implementation with persistent/ephemeral connection modes, rate limiting, and latency measurements
 - `option.go`: Default socket option implementations (non-Linux platforms)
@@ -79,7 +77,8 @@ The project includes test files (connect_test.go, serve_test.go, e2e_test.go). W
 ## Dependencies
 
 Key dependencies include:
-- github.com/spf13/cobra: CLI framework
+- github.com/spf13/pflag: POSIX-style command-line flag parsing
+- github.com/spf13/viper: Configuration management with flag binding
 - github.com/rcrowley/go-metrics: Performance metrics
 - go.uber.org/ratelimit: Rate limiting
 - golang.org/x/sync/errgroup: Concurrent error handling

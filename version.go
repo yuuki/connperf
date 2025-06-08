@@ -2,23 +2,23 @@ package main
 
 import (
 	"fmt"
+	"os"
 
-	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 )
 
 const version = "0.7.2"
 
 var revision = "HEAD"
-
-// versionCmd represents the version command
-var versionCmd = &cobra.Command{
-	Use:   "version",
-	Short: "Show the version of tcpulse",
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Printf("tcpulse %s (revision: %s)\n", version, revision)
-	},
-}
+var showVersion bool
 
 func init() {
-	rootCmd.AddCommand(versionCmd)
+	pflag.BoolVar(&showVersion, "version", false, "show version information")
+}
+
+func handleVersion() {
+	if showVersion {
+		fmt.Printf("tcpulse %s (revision: %s)\n", version, revision)
+		os.Exit(0)
+	}
 }

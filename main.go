@@ -66,26 +66,26 @@ func init() {
 	pflag.BoolVarP(&serverMode, "server", "s", false, "run in server mode")
 
 	// Client flags
-	pflag.StringVar(&protocol, "proto", "tcp", "protocol (tcp or udp)")
-	pflag.DurationVar(&intervalStats, "interval", 5*time.Second, "interval for printing stats")
+	pflag.StringVar(&protocol, "proto", "tcp", "[client mode] protocol (tcp or udp)")
+	pflag.DurationVar(&intervalStats, "interval", 5*time.Second, "[client mode] interval for printing stats")
 	pflag.StringVar(&connectFlavor, "flavor", flavorPersistent,
-		fmt.Sprintf("connect behavior type '%s' or '%s'", flavorPersistent, flavorEphemeral))
+		fmt.Sprintf("[client mode] connect behavior type '%s' or '%s'", flavorPersistent, flavorEphemeral))
 	pflag.Int32Var(&connections, "connections", 10,
-		fmt.Sprintf("Number of concurrent connections to keep (only for '%s')", flavorPersistent))
+		fmt.Sprintf("[client mode] Number of concurrent connections to keep (only for '%s')", flavorPersistent))
 	pflag.Int32Var(&connectRate, "rate", 100,
-		fmt.Sprintf("New connections throughput (/s) (only for '%s')", flavorEphemeral))
-	pflag.DurationVar(&duration, "duration", 10*time.Second, "measurement period")
-	pflag.Int32Var(&messageBytes, "message-bytes", 64, "TCP/UDP message size (bytes)")
-	pflag.BoolVar(&showOnlyResults, "show-only-results", false, "print only results of measurement stats")
-	pflag.BoolVar(&mergeResultsEachHost, "merge-results-each-host", false, "merge results of each host (with --show-only-results)")
-	pflag.BoolVar(&jsonlines, "jsonlines", false, "output results in JSON Lines format")
-	pflag.BoolVar(&addrsFile, "addrs-file", false, "enable to pass a file including a pair of addresses and ports to an argument")
-	pflag.BoolVar(&pprof, "enable-pprof", false, "enable pprof profiling")
-	pflag.StringVar(&pprofAddr, "pprof-addr", "localhost:6060", "pprof listening address:port")
+		fmt.Sprintf("[client mode] New connections throughput (/s) (only for '%s')", flavorEphemeral))
+	pflag.DurationVar(&duration, "duration", 10*time.Second, "[client mode] measurement period")
+	pflag.Int32Var(&messageBytes, "message-bytes", 64, "[client mode] TCP/UDP message size (bytes)")
+	pflag.BoolVar(&showOnlyResults, "show-only-results", false, "[client mode] print only results of measurement stats")
+	pflag.BoolVar(&mergeResultsEachHost, "merge-results-each-host", false, "[client mode] merge results of each host (with --show-only-results)")
+	pflag.BoolVar(&jsonlines, "jsonlines", false, "[client mode] output results in JSON Lines format")
+	pflag.BoolVar(&addrsFile, "addrs-file", false, "[client mode] enable to pass a file including a pair of addresses and ports to an argument")
+	pflag.BoolVar(&pprof, "enable-pprof", false, "[client mode] enable pprof profiling")
+	pflag.StringVar(&pprofAddr, "pprof-addr", "localhost:6060", "[client mode] pprof listening address:port")
 
 	// Server flags
-	pflag.StringVar(&serveProtocol, "protocol", "all", "listening protocol ('tcp' or 'udp')")
-	pflag.StringVar(&listenAddrsFile, "listen-addrs-file", "", "enable to pass a file including a pair of addresses and ports")
+	pflag.StringVar(&serveProtocol, "protocol", "all", "[server mode] listening protocol ('tcp' or 'udp')")
+	pflag.StringVar(&listenAddrsFile, "listen-addrs-file", "", "[server mode] enable to pass a file including a pair of addresses and ports")
 
 	viper.BindPFlags(pflag.CommandLine)
 }

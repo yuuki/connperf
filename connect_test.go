@@ -611,7 +611,6 @@ func TestRunStatLinePrinter(t *testing.T) {
 	defer func() { intervalStats = originalInterval }()
 
 	var buf bytes.Buffer
-	var bufMutex sync.Mutex
 	addr := "test.addr"
 
 	// Set up a timer to have some data

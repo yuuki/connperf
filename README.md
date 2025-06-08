@@ -9,8 +9,8 @@ tcpulse is a high-performance TCP/UDP connection load generator and performance 
 
 tcpulse is a specialized tool designed to measure and analyze the performance characteristics of network connections. It operates in two primary modes:
 
-- **Server mode (`serve`)**: Acts as an echo server that accepts TCP/UDP connections and echoes back received data
-- **Client mode (`connect`)**: Generates configurable load against target servers and measures connection performance metrics
+- **Server mode (`-s/--server`)**: Acts as an echo server that accepts TCP/UDP connections and echoes back received data
+- **Client mode (`-c/--client`)**: Generates configurable load against target servers and measures connection performance metrics
 
 ## Why use tcpulse?
 
@@ -96,49 +96,39 @@ tcpulse --help
 
 ```shell-session
 $ tcpulse --help
-tcpulse is a measturement tool for TCP connections in Go
+Usage: tcpulse [OPTIONS] <addresses...>
 
-Usage:
-  tcpulse [command]
+tcpulse is a concurrent TCP/UDP load generator that provides fine-grained, flow-level control
 
-Available Commands:
-  connect     connect connects to a port where 'serve' listens
-  help        Help about any command
-  serve       serve accepts connections
+Modes:
+  -c, --client    Run in client mode (connect to servers)
+  -s, --server    Run in server mode (accept connections)
 
-Flags:
-  -h, --help   help for tcpulse
+Options:
+      --addrs-file                 [client mode] enable to pass a file including a pair of addresses and ports to an argument
+  -c, --client                     run in client mode
+      --connections int32          [client mode] Number of concurrent connections to keep (only for 'persistent') (default 10)
+      --duration duration          [client mode] measurement period (default 10s)
+      --enable-pprof               [client mode] enable pprof profiling
+      --flavor string              [client mode] connect behavior type 'persistent' or 'ephemeral' (default "persistent")
+      --interval duration          [client mode] interval for printing stats (default 5s)
+      --jsonlines                  [client mode] output results in JSON Lines format
+      --listen-addrs-file string   [server mode] enable to pass a file including a pair of addresses and ports
+      --merge-results-each-host    [client mode] merge results of each host (with --show-only-results)
+      --message-bytes int32        [client mode] TCP/UDP message size (bytes) (default 64)
+      --pprof-addr string          [client mode] pprof listening address:port (default "localhost:6060")
+      --proto string               [client mode] protocol (tcp or udp) (default "tcp")
+      --protocol string            [server mode] listening protocol ('tcp' or 'udp') (default "all")
+      --rate int32                 [client mode] New connections throughput (/s) (only for 'ephemeral') (default 100)
+  -s, --server                     run in server mode
+      --show-only-results          [client mode] print only results of measurement stats
+      --version                    show version information
 
-Use "tcpulse [command] --help" for more information about a command.
-
-# tcpulse serve
-$ tcpulse serve --help
-serve accepts connections
-
-Usage:
-  tcpulse serve [flags]
-
-Flags:
-  -h, --help                help for serve
-  -l, --listenAddr string   listening address (default "0.0.0.0:9100")
-
-# tcpulse connect
-$ ./tcpulse connect --help
-connect connects to a port where 'serve' listens
-
-Usage:
-  tcpulse connect [flags]
-
-Flags:
-  -c, --connections int32   Number of connections to keep (only for 'persistent')l (default 10)
-  -d, --duration duration   measurement period (default 10s)
-  -f, --flavor string       connect behavior type 'persistent' or 'ephemeral' (default "persistent")
-  -h, --help                help for connect
-  -i, --interval int        interval for printing stats (default 5)
-      --jsonlines           output results in JSON Lines format
-  -p, --proto string        protocol (tcp or udp) (default "tcp")
-  -r, --rate int32          New connections throughput (/s) (only for 'ephemeral') (default 100)
-      --show-only-results   print only results of measurement stats (default true)
+Examples:
+  tcpulse -s                          # Start server on default port 9100
+  tcpulse -s 0.0.0.0:8080             # Start server on port 8080
+  tcpulse -c localhost:9100           # Connect to server as client
+  tcpulse -c --connections 50 host:port # Connect with 50 connections
 ```
 
 ## Examples
@@ -148,29 +138,29 @@ Flags:
 Run as a server.
 
 ```shell-session
-$ tcpulse serve -l 127.0.0.1:9100
+$ tcpulse -s 127.0.0.1:9100
 ```
 
 Run as a client to put a load on the server.
 
 ```shell-session
-$ tcpulse connect --flavor ephemeral --rate 1000 --duration 15s 127.0.0.1:9100
+$ tcpulse -c --flavor ephemeral --rate 1000 --duration 15s 127.0.0.1:9100
 ```
 
 ```shell-session
-$ tcpulse connect --flavor persistent --connections 1000 --duration 15s 127.0.0.1:9100
+$ tcpulse -c --flavor persistent --connections 1000 --duration 15s 127.0.0.1:9100
 ```
 
 Run as a UDP client.
 
 ```shell-session
-$ tcpulse connect --proto udp --rate 1000 --duration 15s 127.0.0.1:9100
+$ tcpulse -c --proto udp --rate 1000 --duration 15s 127.0.0.1:9100
 ```
 
 Output results in JSON Lines format for integration with monitoring tools.
 
 ```shell-session
-$ tcpulse connect --jsonlines --rate 1000 --duration 10s 127.0.0.1:9100
+$ tcpulse -c --jsonlines --rate 1000 --duration 10s 127.0.0.1:9100
 {"peer":"127.0.0.1:9100","count":9998,"latency_max_us":2156,"latency_min_us":145,"latency_mean_us":234,"latency_90p_us":289,"latency_95p_us":321,"latency_99p_us":456,"rate_per_sec":999.8,"timestamp":"2025-01-07T10:30:00Z"}
 ```
 
@@ -179,7 +169,7 @@ $ tcpulse connect --jsonlines --rate 1000 --duration 10s 127.0.0.1:9100
 #### Standard Output Format
 
 ```shell-session
-$ tcpulse connect --proto tcp --flavor ephemeral --rate 1000 --duration 15s 10.0.150.2:9200 10.0.150.2:9300
+$ tcpulse -c --proto tcp --flavor ephemeral --rate 1000 --duration 15s 10.0.150.2:9200 10.0.150.2:9300
 PEER                 CNT        LAT_MAX(µs)     LAT_MIN(µs)     LAT_MEAN(µs)    LAT_90p(µs)     LAT_95p(µs)     LAT_99p(µs)     RATE(/s)
 10.0.150.2:9200      4996       4108            212             367             446             492             773             999.00
 10.0.150.2:9300      4999       10294           219             389             435             470             1595            999.40
@@ -195,7 +185,7 @@ PEER                 CNT        LAT_MAX(µs)     LAT_MIN(µs)     LAT_MEAN(µs) 
 #### JSON Lines Output Format
 
 ```shell-session
-$ tcpulse connect --jsonlines --proto tcp --flavor ephemeral --rate 1000 --duration 15s 10.0.150.2:9200 10.0.150.2:9300
+$ tcpulse -c --jsonlines --proto tcp --flavor ephemeral --rate 1000 --duration 15s 10.0.150.2:9200 10.0.150.2:9300
 {"peer":"10.0.150.2:9200","count":14799,"latency_max_us":13736,"latency_min_us":223,"latency_mean_us":530,"latency_90p_us":501,"latency_95p_us":953,"latency_99p_us":5989,"rate_per_sec":996.0,"timestamp":"2025-01-07T10:30:00Z"}
 {"peer":"10.0.150.2:9300","count":14809,"latency_max_us":18023,"latency_min_us":212,"latency_mean_us":542,"latency_90p_us":492,"latency_95p_us":1110,"latency_99p_us":5849,"rate_per_sec":996.47,"timestamp":"2025-01-07T10:30:00Z"}
 ```

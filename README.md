@@ -40,6 +40,7 @@ Creates new connections for each request, immediately closing them afterward. Th
 - **Multi-target support**: Test multiple endpoints simultaneously and aggregate results
 - **Protocol support**: Both TCP and UDP with optimized implementations
 - **Platform optimizations**: Leverages Linux-specific optimizations (TCP_FASTOPEN, SO_REUSEPORT) when available
+- **JSON Lines output**: Machine-readable output format for integration with monitoring and analysis tools
 
 ## Installation
 
@@ -134,6 +135,7 @@ Flags:
   -f, --flavor string       connect behavior type 'persistent' or 'ephemeral' (default "persistent")
   -h, --help                help for connect
   -i, --interval int        interval for printing stats (default 5)
+      --jsonlines           output results in JSON Lines format
   -p, --proto string        protocol (tcp or udp) (default "tcp")
   -r, --rate int32          New connections throughput (/s) (only for 'ephemeral') (default 100)
       --show-only-results   print only results of measurement stats (default true)
@@ -165,7 +167,16 @@ Run as a UDP client.
 $ connperf connect --proto udp --rate 1000 --duration 15s 127.0.0.1:9100
 ```
 
+Output results in JSON Lines format for integration with monitoring tools.
+
+```shell-session
+$ connperf connect --jsonlines --rate 1000 --duration 10s 127.0.0.1:9100
+{"peer":"127.0.0.1:9100","count":9998,"latency_max_us":2156,"latency_min_us":145,"latency_mean_us":234,"latency_90p_us":289,"latency_95p_us":321,"latency_99p_us":456,"rate_per_sec":999.8,"timestamp":"2025-01-07T10:30:00Z"}
+```
+
 ### Reports
+
+#### Standard Output Format
 
 ```shell-session
 $ connperf connect --proto tcp --flavor ephemeral --rate 1000 --duration 15s 10.0.150.2:9200 10.0.150.2:9300
@@ -180,6 +191,26 @@ PEER                 CNT        LAT_MAX(µs)     LAT_MIN(µs)     LAT_MEAN(µs) 
 10.0.150.2:9200      14799      13736           223             530             501             953             5989            996.00
 10.0.150.2:9300      14809      18023           212             542             492             1110            5849            996.47
 ```
+
+#### JSON Lines Output Format
+
+```shell-session
+$ connperf connect --jsonlines --proto tcp --flavor ephemeral --rate 1000 --duration 15s 10.0.150.2:9200 10.0.150.2:9300
+{"peer":"10.0.150.2:9200","count":14799,"latency_max_us":13736,"latency_min_us":223,"latency_mean_us":530,"latency_90p_us":501,"latency_95p_us":953,"latency_99p_us":5989,"rate_per_sec":996.0,"timestamp":"2025-01-07T10:30:00Z"}
+{"peer":"10.0.150.2:9300","count":14809,"latency_max_us":18023,"latency_min_us":212,"latency_mean_us":542,"latency_90p_us":492,"latency_95p_us":1110,"latency_99p_us":5849,"rate_per_sec":996.47,"timestamp":"2025-01-07T10:30:00Z"}
+```
+
+The JSON Lines format includes the following fields:
+- `peer`: Target server address
+- `count`: Total number of successful connections/requests
+- `latency_max_us`: Maximum latency in microseconds
+- `latency_min_us`: Minimum latency in microseconds  
+- `latency_mean_us`: Mean latency in microseconds
+- `latency_90p_us`: 90th percentile latency in microseconds
+- `latency_95p_us`: 95th percentile latency in microseconds
+- `latency_99p_us`: 99th percentile latency in microseconds
+- `rate_per_sec`: Average request rate per second
+- `timestamp`: ISO 8601 timestamp when the measurement was completed
 
 ## License
 

@@ -3,11 +3,41 @@
 [![Test](https://github.com/yuuki/tcpulse/actions/workflows/test.yml/badge.svg)](https://github.com/yuuki/tcpulse/actions/workflows/test.yml)
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/yuuki/tcpulse)
 
-tcpulse is a high-performance TCP/UDP connection load generator and performance measurement tool written in Go.
+tcpulse is a concurrent TCP/UDP load generator written in Go that provides fine-grained, flow-level control over connection establishment and data transfer.
+
+## Table of Contents
+
+- [What is tcpulse?](#what-is-tcpulse)
+- [Why use tcpulse?](#why-use-tcpulse)
+- [How it works](#how-it-works)
+  - [Persistent Connections](#persistent-connections)
+  - [Ephemeral Connections](#ephemeral-connections)
+  - [Key Features](#key-features)
+- [Installation](#installation)
+  - [Pre-built Binaries](#pre-built-binaries)
+  - [Build from Source](#build-from-source)
+  - [Verify Installation](#verify-installation)
+- [Usage](#usage)
+- [Examples](#examples)
+  - [Commands](#commands)
+  - [Reports](#reports)
+- [Use Cases](#use-cases)
+  - [eBPF Kernel Tracer Overhead Measurement](#ebpf-kernel-tracer-overhead-measurement)
+  - [L4 Load Balancer Distribution Verification](#l4-load-balancer-distribution-verification)
+  - [Firewall/Conntrack Table Exhaustion Testing](#firewallconntrack-table-exhaustion-testing)
+  - [UDP Packet Rate Tolerance (Real-time Delivery Simulation)](#udp-packet-rate-tolerance-real-time-delivery-simulation)
+  - [Thread Pinning/IRQ Affinity Tuning Effect Measurement](#thread-pinningirq-affinity-tuning-effect-measurement)
+  - [Multi-target Infrastructure Validation](#multi-target-infrastructure-validation)
+  - [Usage Guidelines](#usage-guidelines)
+- [Comparison with Other Tools](#comparison-with-other-tools)
+  - [Bandwidth Measurement Tools](#bandwidth-measurement-tools)
+  - [tcpulse's Unique Positioning](#tcpulses-unique-positioning)
+  - [tcpulse's Limitations](#tcpulses-limitations)
+- [License](#license)
 
 ## What is tcpulse?
 
-tcpulse is a specialized tool designed to measure and analyze the performance characteristics of network connections. It operates in two primary modes:
+tcpulse is a specialized tool designed to generate load on network connections and analyze the performance characteristics of network traffic. It operates in two primary modes:
 
 - **Server mode (`-s/--server`)**: Acts as an echo server that accepts TCP/UDP connections and echoes back received data
 - **Client mode (`-c/--client`)**: Generates configurable load against target servers and measures connection performance metrics
@@ -201,6 +231,108 @@ The JSON Lines format includes the following fields:
 - `latency_99p_us`: 99th percentile latency in microseconds
 - `rate_per_sec`: Average request rate per second
 - `timestamp`: ISO 8601 timestamp when the measurement was completed
+
+## Use Cases
+
+tcpulse is particularly well-suited for performance validation of network devices and middlewares that relay end-to-end communications. Below are typical experimental scenarios that can be completed with tcpulse alone, which would be difficult to reproduce with iperf/netperf.
+
+### eBPF Kernel Tracer Overhead Measurement
+
+Quantify additional latency in the kernel TCP stack when numerous kprobe/tracepoints are active. Use persistent mode to maintain 10k connections and continuously echo for 1 minute, observing how many microseconds the `p99_latency` increases when eBPF is enabled vs disabled.
+
+```bash
+tcpulse -c --flavor persistent --connections 10000 --duration 60s 10.0.0.2:9100
+```
+
+### L4 Load Balancer Distribution Verification
+
+Verify that an L4 LB can evenly distribute connections across N backends. Generate 10k CPS (connections per second) using ephemeral mode against the L4 LB's VIP (Virtual IP) address, while collecting connection counts on the backend side to calculate standard deviation.
+
+```bash
+tcpulse -c --flavor ephemeral --rate 10000 --duration 30s 10.0.0.2:9100
+```
+
+### Firewall/Conntrack Table Exhaustion Testing
+
+Investigate the "new connections per second capacity" of stateful FW/NAT and behavior when tables are exhausted. Place tcpulse client behind NAT, execute ephemeral mode at 40k CPS for 2 minutes, while simultaneously collecting NAT router memory usage and packet loss statistics.
+
+```bash
+tcpulse -c --flavor ephemeral --rate 40000 --duration 120s 192.0.2.10:9100
+```
+
+### UDP Packet Rate Tolerance (Real-time Delivery Simulation)
+
+Verify that QoS policing and NIC interrupt tuning don't break under VoIP/Gaming-style traffic. Execute UDP at 25k * 2 pps for 10 minutes with 64-byte payload fixed to observe jitter.
+
+```bash
+tcpulse -c --proto udp --rate 25000 --duration 10m --message-bytes 64 198.51.100.5:9100
+```
+
+### Thread Pinning/IRQ Affinity Tuning Effect Measurement
+
+Measure how throughput and latency change when NIC interrupts are pinned to specific CPU cores. Use persistent 5k connections, measuring continuously for 5 minutes before and after affinity changes.
+
+```bash
+tcpulse -c --flavor persistent --connections 5000 --duration 300s 10.1.1.50:9100
+```
+
+### Multi-target Infrastructure Validation
+
+Test multiple endpoints simultaneously to validate distributed system performance under realistic load patterns:
+
+```bash
+# Test multiple services with different load patterns
+tcpulse -c --flavor ephemeral --rate 5000 --duration 60s \
+  service1.example.com:9100 \
+  service2.example.com:9200 \
+  service3.example.com:9300
+```
+
+### Usage Guidelines
+
+| Requirement | tcpulse | iperf3 / netperf |
+|---|---|---|
+| **Fixed CPS/pps Control** | ✅ | △ (coarse with `-b` only) |
+| **Maintain 10k+ Concurrent Flows** | ✅ (`persistent`) | △ (`-P` limit ~128) |
+| **Multi-target Support** | ✅ (`--addrs-file`) | ❌ |
+| **Automatic Percentile Statistics (p95/p99)** | ✅ | △ (netperf: mean/max only) |
+| **Integrated Control & Measurement** | ✅ | ✅/○ |
+
+## Comparison with Other Tools
+
+Network performance testing and load generation tools serve different purposes. Here's how tcpulse compares to popular alternatives:
+
+### Bandwidth Measurement Tools
+
+**[iperf3](https://iperf.fr/)** is one of the most widely used network performance measurement tools. It supports both TCP and UDP protocols and provides JSON output and multi-stream capabilities. Its primary purpose is **measuring maximum network bandwidth** - answering "What's the maximum Mbps this network can achieve?" While UDP mode allows coarse message rate control via the `-b` option, and multi-target testing can be achieved through external script parallelization, the tool is fundamentally designed for 1-to-1 communication.
+
+**[netperf](https://github.com/HewlettPackard/netperf)** is a comprehensive network performance benchmark tool that targets both bulk data transfer and request/response performance. It offers various test types including TCP_STREAM, UDP_STREAM, TCP_RR, and UDP_RR with extensive parameter tuning capabilities. The `*_RR` tests provide microsecond-level latency statistics (min/mean/p90/p99, etc.) as standard output, emphasizing not just throughput but also latency measurement. It excels in network equipment performance evaluation and comparing different network configurations.
+
+**[nuttcp](https://nuttcp.net/)** specializes in high-speed UDP testing with features like burst mode and CPU core selection, making it suitable for performance measurement of networks exceeding 10Gbps.
+
+### tcpulse's Unique Positioning
+
+**tcpulse** is designed to answer "How does the network or application behave under specified load conditions?" Specifically:
+
+**Load Pattern Control**: Ephemeral mode precisely controls new connection generation rates, while persistent mode controls concurrent connection counts. This enables analysis like "CPU usage changes when applying 1000 connections/second load for 30 minutes." While iperf3's UDP mode allows coarse control via bitrate specification, precise connection generation rate control for TCP or long-term precise load maintenance is challenging with existing tools.
+
+**Experiment Reproducibility**: Running with the same parameters reproduces identical load patterns, making it effective for comparative experiments under different conditions and problem reproduction.
+
+**Distributed System Support**: Provides multi-server simultaneous load generation capability within a single tool. Existing tools often require external script-based parallel execution.
+
+These characteristics make tcpulse particularly suitable for **operational validation under realistic load conditions** rather than exploring system performance limits.
+
+### tcpulse's Limitations
+
+However, tcpulse has certain limitations:
+
+**Not Suitable for Maximum Throughput Measurement**: For pure bandwidth measurement like "What's the maximum Gbps this network can achieve?", iperf3 is more appropriate. tcpulse focuses on load control and isn't optimized for maximum performance exploration.
+
+**Overkill for Health Monitoring**: For simply checking if a server is alive or measuring basic latency, ping or curl is sufficient. tcpulse's multi-functionality can be overly complex for simple tests.
+
+**No High-Layer Protocol Support**: Doesn't directly support L7 protocols like HTTP, HTTP/2, or QUIC. Verifying protocol-specific performance characteristics requires dedicated tools or libraries (e.g. [wrk](https://github.com/wg/wrk), [vegeta](https://github.com/tsenart/vegeta), [hey](https://github.com/rakyll/hey), etc.).
+
+**Limited Network Diagnostic Features**: Detailed packet content analysis or network path problem identification requires separate packet capture tools like [Wireshark](https://www.wireshark.org/) or [tcpdump](https://www.tcpdump.org/).
 
 ## License
 

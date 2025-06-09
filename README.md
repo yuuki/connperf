@@ -270,10 +270,10 @@ tcpulse -c --proto udp --rate 25000 --duration 10m --message-bytes 64 198.51.100
 
 ### Thread Pinning/IRQ Affinity Tuning Effect Measurement
 
-Measure how throughput and latency change when NIC interrupts are pinned to specific CPU cores. Use persistent 5k connections + 10k messages/second transmission, measuring continuously for 5 minutes before and after affinity changes.
+Measure how throughput and latency change when NIC interrupts are pinned to specific CPU cores. Use persistent 5k connections, measuring continuously for 5 minutes before and after affinity changes.
 
 ```bash
-tcpulse -c --flavor persistent --connections 5000 --rate 10000 --duration 300s 10.1.1.50:9100
+tcpulse -c --flavor persistent --connections 5000 --duration 300s 10.1.1.50:9100
 ```
 
 ### Multi-target Infrastructure Validation

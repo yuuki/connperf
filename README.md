@@ -5,6 +5,36 @@
 
 tcpulse is a concurrent TCP/UDP load generator written in Go that provides fine-grained, flow-level control over connection establishment and data transfer.
 
+## Table of Contents
+
+- [What is tcpulse?](#what-is-tcpulse)
+- [Why use tcpulse?](#why-use-tcpulse)
+- [How it works](#how-it-works)
+  - [Persistent Connections](#persistent-connections)
+  - [Ephemeral Connections](#ephemeral-connections)
+  - [Key Features](#key-features)
+- [Installation](#installation)
+  - [Pre-built Binaries](#pre-built-binaries)
+  - [Build from Source](#build-from-source)
+  - [Verify Installation](#verify-installation)
+- [Usage](#usage)
+- [Examples](#examples)
+  - [Commands](#commands)
+  - [Reports](#reports)
+- [Use Cases](#use-cases)
+  - [eBPF Kernel Tracer Overhead Measurement](#ebpf-kernel-tracer-overhead-measurement)
+  - [L4 Load Balancer Distribution Verification](#l4-load-balancer-distribution-verification)
+  - [Firewall/Conntrack Table Exhaustion Testing](#firewallconntrack-table-exhaustion-testing)
+  - [UDP Packet Rate Tolerance (Real-time Delivery Simulation)](#udp-packet-rate-tolerance-real-time-delivery-simulation)
+  - [Thread Pinning/IRQ Affinity Tuning Effect Measurement](#thread-pinningirq-affinity-tuning-effect-measurement)
+  - [Multi-target Infrastructure Validation](#multi-target-infrastructure-validation)
+  - [Usage Guidelines](#usage-guidelines)
+- [Comparison with Other Tools](#comparison-with-other-tools)
+  - [Bandwidth Measurement Tools](#bandwidth-measurement-tools)
+  - [tcpulse's Unique Positioning](#tcpulses-unique-positioning)
+  - [tcpulse's Limitations](#tcpulses-limitations)
+- [License](#license)
+
 ## What is tcpulse?
 
 tcpulse is a specialized tool designed to generate load on network connections and analyze the performance characteristics of network traffic. It operates in two primary modes:

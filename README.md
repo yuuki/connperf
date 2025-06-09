@@ -202,6 +202,72 @@ The JSON Lines format includes the following fields:
 - `rate_per_sec`: Average request rate per second
 - `timestamp`: ISO 8601 timestamp when the measurement was completed
 
+## Use Cases
+
+tcpulse is particularly well-suited for performance validation of network devices and middlewares that relay end-to-end communications. Below are typical experimental scenarios that can be completed with tcpulse alone, which would be difficult to reproduce with iperf/netperf.
+
+### eBPF Kernel Tracer Overhead Measurement
+
+Quantify additional latency in the kernel TCP stack when numerous kprobe/tracepoints are active. Use persistent mode to maintain 10k connections and continuously echo for 1 minute, observing how many microseconds the `p99_latency` increases when eBPF is enabled vs disabled.
+
+```bash
+tcpulse -c --flavor persistent --connections 10000 --duration 60s 10.0.0.2:9100
+```
+
+### L4 Load Balancer Distribution Verification
+
+Verify that an L4 LB can evenly distribute connections across N backends. Generate 10k CPS (connections per second) using ephemeral mode against the L4 LB's VIP (Virtual IP) address, while collecting connection counts on the backend side to calculate standard deviation.
+
+```bash
+tcpulse -c --flavor ephemeral --rate 10000 --duration 30s 10.0.0.2:9100
+```
+
+### Firewall/Conntrack Table Exhaustion Testing
+
+Investigate the "new connections per second capacity" of stateful FW/NAT and behavior when tables are exhausted. Place tcpulse client behind NAT, execute ephemeral mode at 40k CPS for 2 minutes, while simultaneously collecting NAT router memory usage and packet loss statistics.
+
+```bash
+tcpulse -c --flavor ephemeral --rate 40000 --duration 120s 192.0.2.10:9100
+```
+
+### UDP Packet Rate Tolerance (Real-time Delivery Simulation)
+
+Verify that QoS policing and NIC interrupt tuning don't break under VoIP/Gaming-style traffic. Execute UDP at 25k * 2 pps for 10 minutes with 64-byte payload fixed to observe jitter.
+
+```bash
+tcpulse -c --proto udp --rate 25000 --duration 10m --message-bytes 64 198.51.100.5:9100
+```
+
+### Thread Pinning/IRQ Affinity Tuning Effect Measurement
+
+Measure how throughput and latency change when NIC interrupts are pinned to specific CPU cores. Use persistent 5k connections + 10k messages/second transmission, measuring continuously for 5 minutes before and after affinity changes.
+
+```bash
+tcpulse -c --flavor persistent --connections 5000 --rate 10000 --duration 300s 10.1.1.50:9100
+```
+
+### Multi-target Infrastructure Validation
+
+Test multiple endpoints simultaneously to validate distributed system performance under realistic load patterns:
+
+```bash
+# Test multiple services with different load patterns
+tcpulse -c --flavor ephemeral --rate 5000 --duration 60s \
+  service1.example.com:9100 \
+  service2.example.com:9200 \
+  service3.example.com:9300
+```
+
+### Usage Guidelines
+
+| Requirement | tcpulse | iperf3 / netperf |
+|---|---|---|
+| **Fixed CPS/pps Control** | ✅ | △ (coarse with `-b` only) |
+| **Maintain 10k+ Concurrent Flows** | ✅ (`persistent`) | △ (`-P` limit ~128) |
+| **Multi-target Support** | ✅ (`--addrs-file`) | ❌ |
+| **Automatic Percentile Statistics (p95/p99)** | ✅ | △ (netperf: mean/max only) |
+| **Integrated Control & Measurement** | ✅ | ✅/○ |
+
 ## Comparison with Other Tools
 
 Network performance testing and load generation tools serve different purposes. Here's how tcpulse compares to popular alternatives:

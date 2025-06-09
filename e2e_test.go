@@ -808,3 +808,96 @@ func TestE2EAllProtocols(t *testing.T) {
 	serverCancel()
 	serverWg.Wait()
 }
+
+// TestE2EMultipleConcurrentClients tests server handling multiple concurrent client connections
+func TestE2EMultipleConcurrentClients(t *testing.T) {
+	port := findAvailablePort()
+	addr := fmt.Sprintf("127.0.0.1:%d", port)
+
+	// Setup server
+	originalServeAddrs := listenAddrs
+	originalServeProtocol := serveProtocol
+	defer func() {
+		listenAddrs = originalServeAddrs
+		serveProtocol = originalServeProtocol
+	}()
+
+	listenAddrs = []string{addr}
+	serveProtocol = "tcp"
+
+	// Start server
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	var serverWg sync.WaitGroup
+	serverWg.Add(1)
+
+	serverCtx, serverCancel := context.WithCancel(ctx)
+	go func() {
+		defer serverWg.Done()
+		server := NewServer(ServerConfig{
+			ListenAddrs: []string{addr},
+			Protocol:    "tcp",
+		})
+		if err := server.serveTCP(serverCtx); err != nil {
+			t.Logf("Multiple clients server completed: %v", err)
+		}
+	}()
+
+	// Wait for server to start
+	time.Sleep(200 * time.Millisecond)
+
+	// Verify server is listening
+	conn, err := net.DialTimeout("tcp", addr, time.Second)
+	if err != nil {
+		serverCancel()
+		t.Fatalf("Failed to connect to server: %v", err)
+	}
+	conn.Close()
+
+	// Setup multiple concurrent clients
+
+	numClients := 3
+	var clientWg sync.WaitGroup
+	clientWg.Add(numClients)
+	clientErrors := make([]error, numClients)
+
+	// Start multiple clients concurrently
+	for i := range numClients {
+		go func(clientID int) {
+			defer clientWg.Done()
+			
+			// Create individual client config to avoid race conditions
+			clientCtx, clientCancel := context.WithTimeout(ctx, 3*time.Second)
+			defer clientCancel()
+			
+			config := ClientConfig{
+				Protocol:             "tcp",
+				ConnectFlavor:        flavorPersistent,
+				Connections:          2,
+				ConnectRate:          10,
+				Duration:             3 * time.Second,
+				MessageBytes:         64,
+				MergeResultsEachHost: false,
+				JSONLines:            false,
+			}
+			
+			client := NewClient(config)
+			clientErrors[clientID] = client.ConnectToAddresses(clientCtx, []string{addr})
+		}(i)
+	}
+
+	// Wait for all clients to complete
+	clientWg.Wait()
+
+	// Check if any client had errors
+	for i, err := range clientErrors {
+		if err != nil {
+			t.Errorf("Client %d error: %v", i, err)
+		}
+	}
+
+	// Cleanup
+	serverCancel()
+	serverWg.Wait()
+}

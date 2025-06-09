@@ -20,7 +20,10 @@ const (
 )
 
 var serveMsgBuf = sync.Pool{
-	New: func() any { return make([]byte, TCPBufferSize) },
+	New: func() any {
+		buf := make([]byte, TCPBufferSize)
+		return &buf
+	},
 }
 
 var bufUDPPool = sync.Pool{
@@ -136,8 +139,8 @@ func (s *Server) serveTCP(ctx context.Context) error {
 func handleConnection(conn net.Conn) error {
 	defer conn.Close()
 
-	buf := serveMsgBuf.Get().([]byte)
-	defer serveMsgBuf.Put(buf)
+	buf := *serveMsgBuf.Get().(*[]byte)
+	defer serveMsgBuf.Put(&buf)
 
 	for {
 		n, err := conn.Read(buf)

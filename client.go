@@ -212,9 +212,6 @@ func (c *Client) connectEphemeral(ctx context.Context, addrport string) error {
 				}
 				defer conn.Close()
 
-				if err := SetLinger(conn); err != nil {
-					return fmt.Errorf("setting linger: %w", err)
-				}
 				if err := SetQuickAck(conn); err != nil {
 					return fmt.Errorf("setting quick ack: %w", err)
 				}

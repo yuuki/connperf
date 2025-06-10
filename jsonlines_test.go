@@ -25,7 +25,8 @@ func TestPrintJSONLinesReport_SingleHost(t *testing.T) {
 	timer.Update(300 * time.Microsecond)
 
 	var buf bytes.Buffer
-	printJSONLinesReport(&buf, []string{addr}, false)
+	printer := NewPrinter(&buf)
+	printer.PrintJSONLinesReport([]string{addr}, false)
 
 	output := strings.TrimSpace(buf.String())
 	if output == "" {
@@ -81,7 +82,8 @@ func TestPrintJSONLinesReport_MultipleHosts(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	printJSONLinesReport(&buf, addrs, false)
+	printer := NewPrinter(&buf)
+	printer.PrintJSONLinesReport(addrs, false)
 
 	lines := strings.Split(strings.TrimSpace(buf.String()), "\n")
 	if len(lines) != 2 {
@@ -125,7 +127,8 @@ func TestPrintJSONLinesReport_MergedHosts(t *testing.T) {
 	timer.Update(400 * time.Microsecond)
 
 	var buf bytes.Buffer
-	printJSONLinesReport(&buf, addrs, true)
+	printer := NewPrinter(&buf)
+	printer.PrintJSONLinesReport(addrs, true)
 
 	output := strings.TrimSpace(buf.String())
 	lines := strings.Split(output, "\n")
@@ -184,7 +187,8 @@ func TestJSONLinesResultFields(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	printJSONLinesReport(&buf, []string{addr}, false)
+	printer := NewPrinter(&buf)
+	printer.PrintJSONLinesReport([]string{addr}, false)
 
 	var result JSONLinesResult
 	if err := json.Unmarshal(buf.Bytes(), &result); err != nil {

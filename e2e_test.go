@@ -54,8 +54,9 @@ func testRunClientE2E(out io.Writer, args []string) error {
 		return fmt.Errorf("setting file limit: %w", err)
 	}
 
+	printer := NewPrinter(os.Stdout)
 	if !jsonlines {
-		printStatHeader(os.Stdout)
+		printer.PrintStatHeader()
 	}
 
 	config := ClientConfig{
@@ -78,7 +79,7 @@ func testRunClientE2E(out io.Writer, args []string) error {
 			if showOnlyResults || jsonlines {
 				return client.ConnectToAddresses(ctx, []string{addr})
 			}
-			runStatLinePrinter(ctx, os.Stdout, addr, intervalStats, mergeResultsEachHost)
+			runStatLinePrinter(ctx, printer, addr, intervalStats, mergeResultsEachHost)
 			return client.ConnectToAddresses(ctx, []string{addr})
 		})
 	}
@@ -88,9 +89,9 @@ func testRunClientE2E(out io.Writer, args []string) error {
 	}
 
 	if jsonlines {
-		printJSONLinesReport(os.Stdout, args, mergeResultsEachHost)
+		printer.PrintJSONLinesReport(args, mergeResultsEachHost)
 	} else {
-		printReport(os.Stdout, args, mergeResultsEachHost)
+		printer.PrintReport(args, mergeResultsEachHost)
 	}
 	return nil
 }

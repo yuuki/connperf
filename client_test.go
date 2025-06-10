@@ -97,8 +97,9 @@ func testRunClient(out io.Writer, args []string) error {
 		return fmt.Errorf("setting file limit: %w", err)
 	}
 
+	printer := NewPrinter(os.Stdout)
 	if !jsonlines {
-		printStatHeader(os.Stdout)
+		printer.PrintStatHeader()
 	}
 
 	config := ClientConfig{
@@ -121,7 +122,7 @@ func testRunClient(out io.Writer, args []string) error {
 			if showOnlyResults || jsonlines {
 				return client.ConnectToAddresses(ctx, []string{addr})
 			}
-			runStatLinePrinter(ctx, os.Stdout, addr, intervalStats, mergeResultsEachHost)
+			runStatLinePrinter(ctx, printer, addr, intervalStats, mergeResultsEachHost)
 			return client.ConnectToAddresses(ctx, []string{addr})
 		})
 	}
@@ -131,9 +132,9 @@ func testRunClient(out io.Writer, args []string) error {
 	}
 
 	if jsonlines {
-		printJSONLinesReport(os.Stdout, args, mergeResultsEachHost)
+		printer.PrintJSONLinesReport(args, mergeResultsEachHost)
 	} else {
-		printReport(os.Stdout, args, mergeResultsEachHost)
+		printer.PrintReport(args, mergeResultsEachHost)
 	}
 	return nil
 }
@@ -337,7 +338,8 @@ func TestUnregisterTimer(t *testing.T) {
 
 func TestPrintStatHeader(t *testing.T) {
 	var buf bytes.Buffer
-	printStatHeader(&buf)
+	printer := NewPrinter(&buf)
+	printer.PrintStatHeader()
 
 	output := buf.String()
 	expectedHeaders := []string{"PEER", "CNT", "LAT_MAX(µs)", "LAT_MIN(µs)",
@@ -356,7 +358,8 @@ func TestPrintStatLine(t *testing.T) {
 	timer.Update(2 * time.Millisecond)
 
 	var buf bytes.Buffer
-	printStatLine(&buf, "test.addr", timer)
+	printer := NewPrinter(&buf)
+	printer.PrintStatLine("test.addr", timer)
 
 	output := buf.String()
 	if !strings.Contains(output, "test.addr") {
@@ -405,7 +408,8 @@ func TestPrintReport(t *testing.T) {
 			tt.setupTimers(tt.addrs)
 
 			var buf bytes.Buffer
-			printReport(&buf, tt.addrs, tt.mergeResultsEachHost)
+			printer := NewPrinter(&buf)
+			printer.PrintReport(tt.addrs, tt.mergeResultsEachHost)
 
 			output := buf.String()
 			if !strings.Contains(output, "--- A result during total execution time ---") {
@@ -656,8 +660,9 @@ func TestRunStatLinePrinter(t *testing.T) {
 	safeWriter := &threadSafeWriter{
 		writer: &buf,
 	}
+	printer := NewPrinter(safeWriter)
 
-	runStatLinePrinter(ctx, safeWriter, addr, 50*time.Millisecond, false)
+	runStatLinePrinter(ctx, printer, addr, 50*time.Millisecond, false)
 
 	// Wait for at least one interval
 	time.Sleep(60 * time.Millisecond)

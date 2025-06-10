@@ -152,10 +152,6 @@ func handleConnection(conn net.Conn) error {
 			if ne, ok := err.(net.Error); ok && ne.Timeout() {
 				continue
 			}
-			// // Check for connection reset by peer - don't treat as error
-			// if isConnectionReset(err) {
-			// 	return nil
-			// }
 			return fmt.Errorf("reading from %q: %w", conn.RemoteAddr(), err)
 		}
 

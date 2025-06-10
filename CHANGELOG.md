@@ -1,5 +1,14 @@
 # Changelog
 
+## [v0.8.1](https://github.com/yuuki/tcpulse/compare/v0.8.0...v0.8.1) - 2025-06-10
+- test: add comprehensive test for multiple concurrent client connections by @yuuki in https://github.com/yuuki/tcpulse/pull/32
+- fix: optimize sync.Pool usage to avoid allocation during Put() calls by @yuuki in https://github.com/yuuki/tcpulse/pull/33
+- docs: add comprehensive tool comparison section by @yuuki in https://github.com/yuuki/tcpulse/pull/34
+- fix: eliminate 'connection reset by peer' errors by @yuuki in https://github.com/yuuki/tcpulse/pull/35
+- fix: eliminate pointer allocation warnings in sync.Pool usage (SA6002) by @yuuki in https://github.com/yuuki/tcpulse/pull/36
+- feat: environment variable support by @yuuki in https://github.com/yuuki/tcpulse/pull/37
+- feat: add --help flag support by @yuuki in https://github.com/yuuki/tcpulse/pull/38
+
 ## [v0.8.0](https://github.com/yuuki/tcpulse/compare/v0.7.2...v0.8.0) - 2025-06-08
 - refactor: replace cobra subcommands with pflag/viper flags by @yuuki in https://github.com/yuuki/tcpulse/pull/28
 - refactor: consolidate utility functions and add comprehensive main.go tests by @yuuki in https://github.com/yuuki/tcpulse/pull/29

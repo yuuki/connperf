@@ -105,7 +105,7 @@ func testRunClient(out io.Writer, args []string) error {
 		Protocol:             protocol,
 		ConnectFlavor:        connectFlavor,
 		Connections:          connections,
-		ConnectRate:          connectRate,
+		Rate:                 rate,
 		Duration:             duration,
 		MessageBytes:         messageBytes,
 		MergeResultsEachHost: mergeResultsEachHost,
@@ -785,18 +785,18 @@ func createTestServer(t *testing.T, protocol string) (string, func()) {
 func TestConnectUDPIntegration(t *testing.T) {
 	originalProtocol := protocol
 	originalDuration := duration
-	originalConnectRate := connectRate
+	originalRate := rate
 	originalMessageBytes := messageBytes
 	defer func() {
 		protocol = originalProtocol
 		duration = originalDuration
-		connectRate = originalConnectRate
+		rate = originalRate
 		messageBytes = originalMessageBytes
 	}()
 
 	protocol = "udp"
 	duration = 100 * time.Millisecond
-	connectRate = 10
+	rate = 10
 	messageBytes = 32
 
 	addr, cleanup := createTestServer(t, "udp")
@@ -809,7 +809,7 @@ func TestConnectUDPIntegration(t *testing.T) {
 		Protocol:             protocol,
 		ConnectFlavor:        connectFlavor,
 		Duration:             duration,
-		ConnectRate:          connectRate,
+		Rate:                 rate,
 		MessageBytes:         messageBytes,
 		MergeResultsEachHost: false,
 	})
@@ -875,24 +875,24 @@ func TestConnectPersistentWithMockServer(t *testing.T) {
 	originalValues := struct {
 		duration     time.Duration
 		connections  int32
-		connectRate  int32
+		rate         int32
 		messageBytes int32
 	}{
 		duration:     duration,
 		connections:  connections,
-		connectRate:  connectRate,
+		rate:         rate,
 		messageBytes: messageBytes,
 	}
 	defer func() {
 		duration = originalValues.duration
 		connections = originalValues.connections
-		connectRate = originalValues.connectRate
+		rate = originalValues.rate
 		messageBytes = originalValues.messageBytes
 	}()
 
 	duration = 100 * time.Millisecond
 	connections = 2
-	connectRate = 50
+	rate = 50
 	messageBytes = 32
 
 	addr, cleanup := createTestServer(t, "tcp")
@@ -906,7 +906,7 @@ func TestConnectPersistentWithMockServer(t *testing.T) {
 		ConnectFlavor:        flavorPersistent,
 		Connections:          connections,
 		Duration:             duration,
-		ConnectRate:          connectRate,
+		Rate:                 rate,
 		MessageBytes:         messageBytes,
 		MergeResultsEachHost: false,
 	})
@@ -930,21 +930,21 @@ func TestConnectPersistentWithMockServer(t *testing.T) {
 func TestConnectEphemeralWithMockServer(t *testing.T) {
 	originalValues := struct {
 		duration     time.Duration
-		connectRate  int32
+		rate         int32
 		messageBytes int32
 	}{
 		duration:     duration,
-		connectRate:  connectRate,
+		rate:         rate,
 		messageBytes: messageBytes,
 	}
 	defer func() {
 		duration = originalValues.duration
-		connectRate = originalValues.connectRate
+		rate = originalValues.rate
 		messageBytes = originalValues.messageBytes
 	}()
 
 	duration = 100 * time.Millisecond
-	connectRate = 20
+	rate = 20
 	messageBytes = 32
 
 	addr, cleanup := createTestServer(t, "tcp")
@@ -957,7 +957,7 @@ func TestConnectEphemeralWithMockServer(t *testing.T) {
 		Protocol:             "tcp",
 		ConnectFlavor:        flavorEphemeral,
 		Duration:             duration,
-		ConnectRate:          connectRate,
+		Rate:                 rate,
 		MessageBytes:         messageBytes,
 		MergeResultsEachHost: false,
 	})
@@ -982,24 +982,24 @@ func TestConnectPersistentContextCancellation(t *testing.T) {
 	originalValues := struct {
 		duration     time.Duration
 		connections  int32
-		connectRate  int32
+		rate         int32
 		messageBytes int32
 	}{
 		duration:     duration,
 		connections:  connections,
-		connectRate:  connectRate,
+		rate:         rate,
 		messageBytes: messageBytes,
 	}
 	defer func() {
 		duration = originalValues.duration
 		connections = originalValues.connections
-		connectRate = originalValues.connectRate
+		rate = originalValues.rate
 		messageBytes = originalValues.messageBytes
 	}()
 
 	duration = 1 * time.Second // Long duration
 	connections = 1
-	connectRate = 1000 // High rate
+	rate = 1000 // High rate
 	messageBytes = 32
 
 	_, cleanup := createTestServer(t, "tcp")
@@ -1013,7 +1013,7 @@ func TestConnectPersistentContextCancellation(t *testing.T) {
 		ConnectFlavor:        flavorPersistent,
 		Connections:          connections,
 		Duration:             duration,
-		ConnectRate:          connectRate,
+		Rate:                 rate,
 		MessageBytes:         messageBytes,
 		MergeResultsEachHost: false,
 	})
@@ -1027,21 +1027,21 @@ func TestConnectPersistentContextCancellation(t *testing.T) {
 func TestConnectEphemeralContextCancellation(t *testing.T) {
 	originalValues := struct {
 		duration     time.Duration
-		connectRate  int32
+		rate         int32
 		messageBytes int32
 	}{
 		duration:     duration,
-		connectRate:  connectRate,
+		rate:         rate,
 		messageBytes: messageBytes,
 	}
 	defer func() {
 		duration = originalValues.duration
-		connectRate = originalValues.connectRate
+		rate = originalValues.rate
 		messageBytes = originalValues.messageBytes
 	}()
 
 	duration = 1 * time.Second // Long duration
-	connectRate = 1000         // High rate
+	rate = 1000                // High rate
 	messageBytes = 32
 
 	_, cleanup := createTestServer(t, "tcp")
@@ -1054,7 +1054,7 @@ func TestConnectEphemeralContextCancellation(t *testing.T) {
 		Protocol:             "tcp",
 		ConnectFlavor:        flavorEphemeral,
 		Duration:             duration,
-		ConnectRate:          connectRate,
+		Rate:                 rate,
 		MessageBytes:         messageBytes,
 		MergeResultsEachHost: false,
 	})
@@ -1068,21 +1068,21 @@ func TestConnectEphemeralContextCancellation(t *testing.T) {
 func TestConnectUDPContextCancellation(t *testing.T) {
 	originalValues := struct {
 		duration     time.Duration
-		connectRate  int32
+		rate         int32
 		messageBytes int32
 	}{
 		duration:     duration,
-		connectRate:  connectRate,
+		rate:         rate,
 		messageBytes: messageBytes,
 	}
 	defer func() {
 		duration = originalValues.duration
-		connectRate = originalValues.connectRate
+		rate = originalValues.rate
 		messageBytes = originalValues.messageBytes
 	}()
 
 	duration = 1 * time.Second // Long duration
-	connectRate = 1000         // High rate
+	rate = 1000                // High rate
 	messageBytes = 32
 
 	_, cleanup := createTestServer(t, "udp")
@@ -1094,7 +1094,7 @@ func TestConnectUDPContextCancellation(t *testing.T) {
 	client := NewClient(ClientConfig{
 		Protocol:             "udp",
 		Duration:             duration,
-		ConnectRate:          connectRate,
+		Rate:                 rate,
 		MessageBytes:         messageBytes,
 		MergeResultsEachHost: false,
 	})
@@ -1109,24 +1109,24 @@ func TestConnectPersistentConnectionFailure(t *testing.T) {
 	originalValues := struct {
 		duration     time.Duration
 		connections  int32
-		connectRate  int32
+		rate         int32
 		messageBytes int32
 	}{
 		duration:     duration,
 		connections:  connections,
-		connectRate:  connectRate,
+		rate:         rate,
 		messageBytes: messageBytes,
 	}
 	defer func() {
 		duration = originalValues.duration
 		connections = originalValues.connections
-		connectRate = originalValues.connectRate
+		rate = originalValues.rate
 		messageBytes = originalValues.messageBytes
 	}()
 
 	duration = 100 * time.Millisecond
 	connections = 1
-	connectRate = 10
+	rate = 10
 	messageBytes = 32
 
 	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
@@ -1137,7 +1137,7 @@ func TestConnectPersistentConnectionFailure(t *testing.T) {
 		ConnectFlavor:        flavorPersistent,
 		Connections:          connections,
 		Duration:             duration,
-		ConnectRate:          connectRate,
+		Rate:                 rate,
 		MessageBytes:         messageBytes,
 		MergeResultsEachHost: false,
 	})
@@ -1154,21 +1154,21 @@ func TestConnectPersistentConnectionFailure(t *testing.T) {
 func TestConnectEphemeralConnectionFailure(t *testing.T) {
 	originalValues := struct {
 		duration     time.Duration
-		connectRate  int32
+		rate         int32
 		messageBytes int32
 	}{
 		duration:     duration,
-		connectRate:  connectRate,
+		rate:         rate,
 		messageBytes: messageBytes,
 	}
 	defer func() {
 		duration = originalValues.duration
-		connectRate = originalValues.connectRate
+		rate = originalValues.rate
 		messageBytes = originalValues.messageBytes
 	}()
 
 	duration = 100 * time.Millisecond
-	connectRate = 10
+	rate = 10
 	messageBytes = 32
 
 	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
@@ -1178,7 +1178,7 @@ func TestConnectEphemeralConnectionFailure(t *testing.T) {
 		Protocol:             "tcp",
 		ConnectFlavor:        flavorEphemeral,
 		Duration:             duration,
-		ConnectRate:          connectRate,
+		Rate:                 rate,
 		MessageBytes:         messageBytes,
 		MergeResultsEachHost: false,
 	})
@@ -1193,21 +1193,21 @@ func TestConnectEphemeralConnectionFailure(t *testing.T) {
 func TestConnectUDPConnectionFailure(t *testing.T) {
 	originalValues := struct {
 		duration     time.Duration
-		connectRate  int32
+		rate         int32
 		messageBytes int32
 	}{
 		duration:     duration,
-		connectRate:  connectRate,
+		rate:         rate,
 		messageBytes: messageBytes,
 	}
 	defer func() {
 		duration = originalValues.duration
-		connectRate = originalValues.connectRate
+		rate = originalValues.rate
 		messageBytes = originalValues.messageBytes
 	}()
 
 	duration = 100 * time.Millisecond
-	connectRate = 10
+	rate = 10
 	messageBytes = 32
 
 	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
@@ -1216,7 +1216,7 @@ func TestConnectUDPConnectionFailure(t *testing.T) {
 	client := NewClient(ClientConfig{
 		Protocol:             "udp",
 		Duration:             duration,
-		ConnectRate:          connectRate,
+		Rate:                 rate,
 		MessageBytes:         messageBytes,
 		MergeResultsEachHost: false,
 	})
@@ -1299,7 +1299,7 @@ func TestRunConnectCmdIntegration(t *testing.T) {
 		connectFlavor        string
 		duration             time.Duration
 		connections          int32
-		connectRate          int32
+		rate                 int32
 		messageBytes         int32
 		showOnlyResults      bool
 		mergeResultsEachHost bool
@@ -1308,7 +1308,7 @@ func TestRunConnectCmdIntegration(t *testing.T) {
 		connectFlavor:        connectFlavor,
 		duration:             duration,
 		connections:          connections,
-		connectRate:          connectRate,
+		rate:                 rate,
 		messageBytes:         messageBytes,
 		showOnlyResults:      showOnlyResults,
 		mergeResultsEachHost: mergeResultsEachHost,
@@ -1318,7 +1318,7 @@ func TestRunConnectCmdIntegration(t *testing.T) {
 		connectFlavor = originalValues.connectFlavor
 		duration = originalValues.duration
 		connections = originalValues.connections
-		connectRate = originalValues.connectRate
+		rate = originalValues.rate
 		messageBytes = originalValues.messageBytes
 		showOnlyResults = originalValues.showOnlyResults
 		mergeResultsEachHost = originalValues.mergeResultsEachHost
@@ -1327,7 +1327,7 @@ func TestRunConnectCmdIntegration(t *testing.T) {
 	protocol = "tcp"
 	connectFlavor = flavorEphemeral
 	duration = 100 * time.Millisecond
-	connectRate = 10
+	rate = 10
 	messageBytes = 32
 	showOnlyResults = true
 	mergeResultsEachHost = false

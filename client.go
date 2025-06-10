@@ -27,7 +27,7 @@ type ClientConfig struct {
 	Protocol             string
 	ConnectFlavor        string
 	Connections          int32
-	ConnectRate          int32
+	Rate                 int32
 	Duration             time.Duration
 	MessageBytes         int32
 	MergeResultsEachHost bool
@@ -143,8 +143,8 @@ func (c *Client) connectPersistent(ctx context.Context, addrport string) error {
 			}
 			defer conn.Close()
 
-			msgsTotal := int64(c.config.ConnectRate) * int64(c.config.Duration.Seconds())
-			limiter := ratelimit.New(int(c.config.ConnectRate))
+			msgsTotal := int64(c.config.Rate) * int64(c.config.Duration.Seconds())
+			limiter := ratelimit.New(int(c.config.Rate))
 
 			for j := int64(0); j < msgsTotal; j++ {
 				if err := waitLim(ctx, limiter); err != nil {
@@ -195,8 +195,8 @@ func (c *Client) connectEphemeral(ctx context.Context, addrport string) error {
 		Control: GetTCPControlWithFastOpen(),
 	}
 
-	connTotal := int64(c.config.ConnectRate) * int64(c.config.Duration.Seconds())
-	limiter := ratelimit.New(int(c.config.ConnectRate))
+	connTotal := int64(c.config.Rate) * int64(c.config.Duration.Seconds())
+	limiter := ratelimit.New(int(c.config.Rate))
 
 	eg, ctx := errgroup.WithContext(ctx)
 	for i := int64(0); i < connTotal; i++ {
@@ -258,11 +258,11 @@ func (c *Client) connectUDP(ctx context.Context, addrport string) error {
 	ctx, cancel := context.WithTimeout(ctx, c.config.Duration)
 	defer cancel()
 
-	connTotal := int64(c.config.ConnectRate) * int64(c.config.Duration.Seconds())
-	limiter := ratelimit.New(int(c.config.ConnectRate))
+	connTotal := int64(c.config.Rate) * int64(c.config.Duration.Seconds())
+	limiter := ratelimit.New(int(c.config.Rate))
 
 	bufUDPPool := sync.Pool{
-		New: func() any { 
+		New: func() any {
 			buf := make([]byte, c.config.MessageBytes)
 			return &buf
 		},

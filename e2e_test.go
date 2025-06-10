@@ -62,7 +62,7 @@ func testRunClientE2E(out io.Writer, args []string) error {
 		Protocol:             protocol,
 		ConnectFlavor:        connectFlavor,
 		Connections:          connections,
-		ConnectRate:          connectRate,
+		Rate:                 rate,
 		Duration:             duration,
 		MessageBytes:         messageBytes,
 		MergeResultsEachHost: mergeResultsEachHost,
@@ -148,7 +148,7 @@ func TestE2ETCPServerClientEcho(t *testing.T) {
 	protocol = "tcp"
 	connectFlavor = flavorEphemeral
 	duration = 1 * time.Second
-	connectRate = 5
+	rate = 5
 	messageBytes = 32
 	showOnlyResults = true
 
@@ -229,7 +229,7 @@ func TestE2EUDPServerClientEcho(t *testing.T) {
 
 	protocol = "udp"
 	duration = 1 * time.Second
-	connectRate = 5
+	rate = 5
 	messageBytes = 32
 	showOnlyResults = true
 
@@ -301,7 +301,7 @@ func TestE2ETCPPersistentMode(t *testing.T) {
 	connectFlavor = flavorPersistent
 	duration = 1 * time.Second
 	connections = 2
-	connectRate = 10
+	rate = 10
 	messageBytes = 64
 	showOnlyResults = true
 
@@ -369,7 +369,7 @@ func TestE2ETCPEphemeralMode(t *testing.T) {
 	protocol = "tcp"
 	connectFlavor = flavorEphemeral
 	duration = 1 * time.Second
-	connectRate = 8
+	rate = 8
 	messageBytes = 128
 	showOnlyResults = true
 
@@ -439,7 +439,7 @@ func TestE2EMultipleAddresses(t *testing.T) {
 	protocol = "tcp"
 	connectFlavor = flavorEphemeral
 	duration = 1 * time.Second
-	connectRate = 5
+	rate = 5
 	messageBytes = 32
 	showOnlyResults = true
 	mergeResultsEachHost = false
@@ -513,7 +513,7 @@ func TestE2EMergedResults(t *testing.T) {
 	protocol = "tcp"
 	connectFlavor = flavorEphemeral
 	duration = 1 * time.Second
-	connectRate = 5
+	rate = 5
 	messageBytes = 32
 	showOnlyResults = true
 	mergeResultsEachHost = true
@@ -582,7 +582,7 @@ func TestE2ELargeMessageSize(t *testing.T) {
 	protocol = "tcp"
 	connectFlavor = flavorEphemeral
 	duration = 1 * time.Second
-	connectRate = 3
+	rate = 3
 	messageBytes = 1024 // Larger message size
 	showOnlyResults = true
 
@@ -650,7 +650,7 @@ func TestE2EServerShutdown(t *testing.T) {
 	protocol = "tcp"
 	connectFlavor = flavorEphemeral
 	duration = 3 * time.Second // Longer duration
-	connectRate = 5
+	rate = 5
 	messageBytes = 32
 	showOnlyResults = true
 
@@ -684,7 +684,7 @@ type clientVars struct {
 	connectFlavor        string
 	duration             time.Duration
 	connections          int32
-	connectRate          int32
+	rate                 int32
 	messageBytes         int32
 	showOnlyResults      bool
 	mergeResultsEachHost bool
@@ -696,7 +696,7 @@ func preserveClientVars() clientVars {
 		connectFlavor:        connectFlavor,
 		duration:             duration,
 		connections:          connections,
-		connectRate:          connectRate,
+		rate:                 rate,
 		messageBytes:         messageBytes,
 		showOnlyResults:      showOnlyResults,
 		mergeResultsEachHost: mergeResultsEachHost,
@@ -708,7 +708,7 @@ func restoreClientVars(vars clientVars) {
 	connectFlavor = vars.connectFlavor
 	duration = vars.duration
 	connections = vars.connections
-	connectRate = vars.connectRate
+	rate = vars.rate
 	messageBytes = vars.messageBytes
 	showOnlyResults = vars.showOnlyResults
 	mergeResultsEachHost = vars.mergeResultsEachHost
@@ -772,7 +772,7 @@ func TestE2EAllProtocols(t *testing.T) {
 	protocol = "tcp"
 	connectFlavor = flavorEphemeral
 	duration = 500 * time.Millisecond
-	connectRate = 5
+	rate = 5
 	messageBytes = 32
 	showOnlyResults = true
 
@@ -866,22 +866,22 @@ func TestE2EMultipleConcurrentClients(t *testing.T) {
 	for i := range numClients {
 		go func(clientID int) {
 			defer clientWg.Done()
-			
+
 			// Create individual client config to avoid race conditions
 			clientCtx, clientCancel := context.WithTimeout(ctx, 3*time.Second)
 			defer clientCancel()
-			
+
 			config := ClientConfig{
 				Protocol:             "tcp",
 				ConnectFlavor:        flavorPersistent,
 				Connections:          2,
-				ConnectRate:          10,
+				Rate:                 10,
 				Duration:             3 * time.Second,
 				MessageBytes:         64,
 				MergeResultsEachHost: false,
 				JSONLines:            false,
 			}
-			
+
 			client := NewClient(config)
 			clientErrors[clientID] = client.ConnectToAddresses(clientCtx, []string{addr})
 		}(i)

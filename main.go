@@ -44,7 +44,7 @@ var (
 	intervalStats        time.Duration
 	connectFlavor        string
 	connections          int32
-	connectRate          int32
+	rate                 int32
 	duration             time.Duration
 	messageBytes         int32
 	showOnlyResults      bool
@@ -73,8 +73,8 @@ func init() {
 		fmt.Sprintf("[client mode] connect behavior type '%s' or '%s'", flavorPersistent, flavorEphemeral))
 	pflag.Int32Var(&connections, "connections", 10,
 		fmt.Sprintf("[client mode] Number of concurrent connections to keep (only for '%s')", flavorPersistent))
-	pflag.Int32Var(&connectRate, "rate", 100,
-		fmt.Sprintf("[client mode] New connections throughput (/s) (only for '%s')", flavorEphemeral))
+	pflag.Int32Var(&rate, "rate", 100,
+		fmt.Sprintf("[client mode] New connections throughput (/s) (for '%s') or message roundtrip throughput per connection (/s) (for '%s' and UDP)", flavorEphemeral, flavorPersistent))
 	pflag.DurationVar(&duration, "duration", 10*time.Second, "[client mode] measurement period")
 	pflag.Int32Var(&messageBytes, "message-bytes", 64, "[client mode] TCP/UDP message size (bytes)")
 	pflag.BoolVar(&showOnlyResults, "show-only-results", false, "[client mode] print only results of measurement stats")
@@ -92,7 +92,7 @@ func init() {
 	viper.SetEnvPrefix("TCPULSE")
 	viper.AutomaticEnv()
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
-	
+
 	viper.BindPFlags(pflag.CommandLine)
 }
 
@@ -106,7 +106,7 @@ func main() {
 	intervalStats = viper.GetDuration("interval")
 	connectFlavor = viper.GetString("flavor")
 	connections = viper.GetInt32("connections")
-	connectRate = viper.GetInt32("rate")
+	rate = viper.GetInt32("rate")
 	duration = viper.GetDuration("duration")
 	messageBytes = viper.GetInt32("message-bytes")
 	showOnlyResults = viper.GetBool("show-only-results")
@@ -256,7 +256,7 @@ func runClient() error {
 		Protocol:             protocol,
 		ConnectFlavor:        connectFlavor,
 		Connections:          connections,
-		ConnectRate:          connectRate,
+		Rate:                 rate,
 		Duration:             duration,
 		MessageBytes:         messageBytes,
 		MergeResultsEachHost: mergeResultsEachHost,

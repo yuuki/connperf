@@ -306,14 +306,6 @@ func (c *Client) connectUDP(ctx context.Context, addrport string) error {
 	return eg.Wait()
 }
 
-func toMicroseconds(n int64) int64 {
-	return time.Duration(n).Microseconds()
-}
-
-func toMicrosecondsf(n float64) int64 {
-	return time.Duration(n).Microseconds()
-}
-
 func runStatLinePrinter(ctx context.Context, printer *Printer, addr string, intervalStats time.Duration, mergeResultsEachHost bool) {
 	go func() {
 		ticker := time.NewTicker(intervalStats)

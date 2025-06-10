@@ -9,6 +9,14 @@ import (
 	"github.com/rcrowley/go-metrics"
 )
 
+func toMicroseconds(n int64) int64 {
+	return time.Duration(n).Microseconds()
+}
+
+func toMicrosecondsf(n float64) int64 {
+	return time.Duration(n).Microseconds()
+}
+
 type Printer struct {
 	writer io.Writer
 }

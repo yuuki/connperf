@@ -1,4 +1,4 @@
-.PHONY: build test vet staticcheck docker/build
+.PHONY: build test vet staticcheck revive docker/build
 
 OUT_BIN := tcpulse
 GO := $(shell which go)
@@ -16,7 +16,10 @@ vet:
 staticcheck:
 	$(GO) tool staticcheck ./...
 
-test: vet staticcheck
+revive:
+	$(GO) tool revive ./...
+
+test: vet staticcheck revive
 	$(GO) test -race -v ./...
 
 docker/build:

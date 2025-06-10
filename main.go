@@ -248,8 +248,9 @@ func runClient() error {
 		}
 	}
 
+	printer := NewPrinter(os.Stdout)
 	if !jsonlines {
-		printStatHeader(os.Stdout)
+		printer.PrintStatHeader()
 	}
 
 	config := ClientConfig{
@@ -272,7 +273,7 @@ func runClient() error {
 			if showOnlyResults || jsonlines {
 				return client.ConnectToAddresses(ctx, []string{addr})
 			}
-			runStatLinePrinter(ctx, os.Stdout, addr, intervalStats, mergeResultsEachHost)
+			runStatLinePrinter(ctx, printer, addr, intervalStats, mergeResultsEachHost)
 			return client.ConnectToAddresses(ctx, []string{addr})
 		})
 	}
@@ -282,9 +283,9 @@ func runClient() error {
 	}
 
 	if jsonlines {
-		printJSONLinesReport(os.Stdout, addrs, mergeResultsEachHost)
+		printer.PrintJSONLinesReport(addrs, mergeResultsEachHost)
 	} else {
-		printReport(os.Stdout, addrs, mergeResultsEachHost)
+		printer.PrintReport(addrs, mergeResultsEachHost)
 	}
 	return nil
 }

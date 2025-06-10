@@ -7,7 +7,6 @@ import (
 	"io"
 	"log/slog"
 	"net"
-	"strings"
 	"sync"
 	"time"
 
@@ -174,17 +173,6 @@ func handleConnection(conn net.Conn) error {
 			return fmt.Errorf("writing to %q: %w", conn.RemoteAddr(), err)
 		}
 	}
-}
-
-func isConnectionReset(err error) bool {
-	if err == nil {
-		return false
-	}
-	// Check for common connection reset patterns
-	errStr := err.Error()
-	return strings.Contains(errStr, "connection reset by peer") ||
-		strings.Contains(errStr, "broken pipe") ||
-		strings.Contains(errStr, "write: broken pipe")
 }
 
 func (s *Server) serveUDP(ctx context.Context) error {

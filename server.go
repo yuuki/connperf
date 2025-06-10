@@ -14,8 +14,8 @@ import (
 )
 
 const (
-	UDPPacketSize     = 1500
 	TCPBufferSize     = 4 * 1024
+	UDPBufferSize     = 4 * 1024
 	RetryDelaySeconds = 1
 )
 
@@ -28,7 +28,7 @@ var serveMsgBuf = sync.Pool{
 
 var bufUDPPool = sync.Pool{
 	New: func() any {
-		buf := make([]byte, UDPPacketSize)
+		buf := make([]byte, UDPBufferSize)
 		return &buf
 	},
 }

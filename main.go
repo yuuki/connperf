@@ -121,6 +121,9 @@ func main() {
 	// Handle version flag
 	handleVersion()
 
+	// Handle help flag
+	handleHelp()
+
 	// Handle listen addresses for server mode
 	if serverMode {
 		// Default listen address if none provided

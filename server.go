@@ -7,6 +7,7 @@ import (
 	"io"
 	"log/slog"
 	"net"
+	"strings"
 	"sync"
 	"time"
 
@@ -119,9 +120,6 @@ func (s *Server) serveTCP(ctx context.Context) error {
 				if err := SetQuickAck(conn); err != nil {
 					return fmt.Errorf("setting quick ack: %w", err)
 				}
-				if err := SetLinger(conn); err != nil {
-					return fmt.Errorf("setting linger: %w", err)
-				}
 
 				go func() {
 					if err := handleConnection(conn); err != nil {
@@ -151,6 +149,10 @@ func handleConnection(conn net.Conn) error {
 			if ne, ok := err.(net.Error); ok && ne.Timeout() {
 				continue
 			}
+			// // Check for connection reset by peer - don't treat as error
+			// if isConnectionReset(err) {
+			// 	return nil
+			// }
 			return fmt.Errorf("reading from %q: %w", conn.RemoteAddr(), err)
 		}
 
@@ -161,9 +163,24 @@ func handleConnection(conn net.Conn) error {
 			if ne, ok := err.(net.Error); ok && ne.Timeout() {
 				continue
 			}
+			// Check for connection reset by peer - don't treat as error
+			// if isConnectionReset(err) {
+			// 	return nil
+			// }
 			return fmt.Errorf("writing to %q: %w", conn.RemoteAddr(), err)
 		}
 	}
+}
+
+func isConnectionReset(err error) bool {
+	if err == nil {
+		return false
+	}
+	// Check for common connection reset patterns
+	errStr := err.Error()
+	return strings.Contains(errStr, "connection reset by peer") ||
+		strings.Contains(errStr, "broken pipe") ||
+		strings.Contains(errStr, "write: broken pipe")
 }
 
 func (s *Server) serveUDP(ctx context.Context) error {

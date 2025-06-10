@@ -38,17 +38,6 @@ func SetQuickAck(conn net.Conn) error {
 	return nil
 }
 
-func SetLinger(conn net.Conn) error {
-	tcpconn, ok := conn.(*net.TCPConn)
-	if !ok {
-		return fmt.Errorf("failed type assertion %q", conn.RemoteAddr())
-	}
-	if err := tcpconn.SetLinger(0); err != nil {
-		return fmt.Errorf("could not set SO_LINGER: %w", err)
-	}
-	return nil
-}
-
 func GetTCPControlWithFastOpen() func(network, address string, c syscall.RawConn) error {
 	return func(network, _ string, c syscall.RawConn) error {
 		return c.Control(func(fd uintptr) {

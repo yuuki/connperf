@@ -124,7 +124,10 @@ func (c *Client) connectPersistent(ctx context.Context, addrport string) error {
 	defer cancel()
 
 	bufTCPPool := sync.Pool{
-		New: func() any { return make([]byte, c.config.MessageBytes) },
+		New: func() any {
+			buf := make([]byte, c.config.MessageBytes)
+			return &buf
+		},
 	}
 
 	dialer := net.Dialer{
@@ -152,8 +155,9 @@ func (c *Client) connectPersistent(ctx context.Context, addrport string) error {
 				}
 
 				if err := measureTime(addrport, c.config.MergeResultsEachHost, func() error {
-					msg := bufTCPPool.Get().([]byte)
-					defer bufTCPPool.Put(msg)
+					msgPtr := bufTCPPool.Get().(*[]byte)
+					msg := *msgPtr
+					defer bufTCPPool.Put(msgPtr)
 
 					if n, err := rand.Read(msg); err != nil {
 						return fmt.Errorf("generating random data (length:%d): %w", n, err)
@@ -181,7 +185,10 @@ func (c *Client) connectEphemeral(ctx context.Context, addrport string) error {
 	defer cancel()
 
 	bufTCPPool := sync.Pool{
-		New: func() any { return make([]byte, c.config.MessageBytes) },
+		New: func() any {
+			buf := make([]byte, c.config.MessageBytes)
+			return &buf
+		},
 	}
 
 	dialer := net.Dialer{
@@ -216,8 +223,9 @@ func (c *Client) connectEphemeral(ctx context.Context, addrport string) error {
 					return fmt.Errorf("setting quick ack: %w", err)
 				}
 
-				msg := bufTCPPool.Get().([]byte)
-				defer bufTCPPool.Put(msg)
+				msgPtr := bufTCPPool.Get().(*[]byte)
+				msg := *msgPtr
+				defer bufTCPPool.Put(msgPtr)
 
 				if n, err := rand.Read(msg); err != nil {
 					return fmt.Errorf("generating random data (length:%d): %w", n, err)
@@ -274,8 +282,9 @@ func (c *Client) connectUDP(ctx context.Context, addrport string) error {
 				}
 				defer conn.Close()
 
-				msg := bufUDPPool.Get().([]byte)
-				defer bufUDPPool.Put(msg)
+				msgPtr := bufUDPPool.Get().(*[]byte)
+				msg := *msgPtr
+				defer bufUDPPool.Put(msgPtr)
 
 				if n, err := rand.Read(msg); err != nil {
 					return fmt.Errorf("generating random data (length:%d): %w", n, err)

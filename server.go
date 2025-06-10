@@ -28,7 +28,10 @@ var serveMsgBuf = sync.Pool{
 }
 
 var bufUDPPool = sync.Pool{
-	New: func() any { return make([]byte, UDPPacketSize) },
+	New: func() any {
+		buf := make([]byte, UDPPacketSize)
+		return &buf
+	},
 }
 
 type ServerConfig struct {
@@ -137,8 +140,9 @@ func (s *Server) serveTCP(ctx context.Context) error {
 func handleConnection(conn net.Conn) error {
 	defer conn.Close()
 
-	buf := *serveMsgBuf.Get().(*[]byte)
-	defer serveMsgBuf.Put(&buf)
+	bufPtr := serveMsgBuf.Get().(*[]byte)
+	defer serveMsgBuf.Put(bufPtr)
+	buf := *bufPtr
 
 	for {
 		n, err := conn.Read(buf)
@@ -202,10 +206,11 @@ func (s *Server) serveUDP(ctx context.Context) error {
 			}()
 
 			for {
-				msg := bufUDPPool.Get().([]byte)
+				msgPtr := bufUDPPool.Get().(*[]byte)
+				msg := *msgPtr
 				n, remoteAddr, err := ln.ReadFrom(msg)
 				if err != nil {
-					bufUDPPool.Put(msg)
+					bufUDPPool.Put(msgPtr)
 					select {
 					case <-ctx.Done():
 						return nil
@@ -215,14 +220,14 @@ func (s *Server) serveUDP(ctx context.Context) error {
 					continue
 				}
 
-				go func() {
-					defer bufUDPPool.Put(msg)
+				go func(msgPtr *[]byte, msg []byte) {
+					defer bufUDPPool.Put(msgPtr)
 					if _, err = ln.WriteTo(msg[:n], remoteAddr); err != nil {
 						slog.Error("UDP write error",
 							"remote_addr", remoteAddr,
 							"error", err)
 					}
-				}()
+				}(msgPtr, msg)
 			}
 		})
 	}

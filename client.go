@@ -262,7 +262,10 @@ func (c *Client) connectUDP(ctx context.Context, addrport string) error {
 	limiter := ratelimit.New(int(c.config.ConnectRate))
 
 	bufUDPPool := sync.Pool{
-		New: func() any { return make([]byte, c.config.MessageBytes) },
+		New: func() any { 
+			buf := make([]byte, c.config.MessageBytes)
+			return &buf
+		},
 	}
 
 	eg, ctx := errgroup.WithContext(ctx)

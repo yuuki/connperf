@@ -88,11 +88,35 @@ func init() {
 	pflag.StringVar(&serveProtocol, "protocol", "all", "[server mode] listening protocol ('tcp' or 'udp')")
 	pflag.StringVar(&listenAddrsFile, "listen-addrs-file", "", "[server mode] enable to pass a file including a pair of addresses and ports")
 
+	// Configure viper for environment variables
+	viper.SetEnvPrefix("TCPULSE")
+	viper.AutomaticEnv()
+	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
+	
 	viper.BindPFlags(pflag.CommandLine)
 }
 
 func main() {
 	pflag.Parse()
+
+	// Read values from viper (includes environment variables)
+	clientMode = viper.GetBool("client")
+	serverMode = viper.GetBool("server")
+	protocol = viper.GetString("proto")
+	intervalStats = viper.GetDuration("interval")
+	connectFlavor = viper.GetString("flavor")
+	connections = viper.GetInt32("connections")
+	connectRate = viper.GetInt32("rate")
+	duration = viper.GetDuration("duration")
+	messageBytes = viper.GetInt32("message-bytes")
+	showOnlyResults = viper.GetBool("show-only-results")
+	mergeResultsEachHost = viper.GetBool("merge-results-each-host")
+	jsonlines = viper.GetBool("jsonlines")
+	addrsFile = viper.GetBool("addrs-file")
+	pprof = viper.GetBool("enable-pprof")
+	pprofAddr = viper.GetString("pprof-addr")
+	serveProtocol = viper.GetString("protocol")
+	listenAddrsFile = viper.GetString("listen-addrs-file")
 
 	// Handle version flag
 	handleVersion()

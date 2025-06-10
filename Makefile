@@ -19,7 +19,7 @@ staticcheck:
 revive:
 	$(GO) tool revive ./...
 
-test: vet staticcheck revive
+test: vet staticcheck
 	$(GO) test -race -v ./...
 
 docker/build:

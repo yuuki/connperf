@@ -11,16 +11,20 @@ tcpulse is a TCP/UDP connection performance load generator written in Go. It pro
 ## Build Commands
 
 ```bash
-# Build the binary
+# Build the binary (includes vet and staticcheck)
 make build
 
 # Build Docker image
 make docker/build
 
-# Run tests
+# Run tests (includes vet and staticcheck)
 make test
 # or
 go test ./...
+
+# Run linting tools
+make vet          # go vet
+make staticcheck  # staticcheck
 ```
 
 ## Development Workflow with GitHub
@@ -40,9 +44,9 @@ The project follows a simple flat structure with all Go files in the top-level d
 - `main.go`: Entry point with flag-based CLI using pflag and viper (-c for client, -s for server)
 - `server.go`: TCP/UDP server logic with context-based cancellation and errgroup for concurrent handling
 - `client.go`: Client implementation with persistent/ephemeral connection modes, rate limiting, and latency measurements
-- `option.go`: Default socket option implementations (non-Linux platforms)
-- `option_linux.go`: Linux-specific socket optimizations using build tags
-- `utils.go`: Utility functions for file descriptor limits and file reading
+- `socket_option.go`: Default socket option implementations (non-Linux platforms)
+- `socket_option_linux.go`: Linux-specific socket optimizations using build tags
+- `printer.go`: Utility functions for formatting and printing output/metrics
 - `version.go`: Version information
 
 ## Key Design Patterns
@@ -64,11 +68,11 @@ The project follows a simple flat structure with all Go files in the top-level d
 
 ## Testing
 
-The project includes test files (connect_test.go, serve_test.go, e2e_test.go). When adding new functionality, follow the existing test patterns and ensure all edge cases are covered, especially around connection handling and error scenarios.
+The project includes test files (client_test.go, server_test.go, main_test.go, e2e_test.go, printer_test.go, jsonlines_test.go). When adding new functionality, follow the existing test patterns and ensure all edge cases are covered, especially around connection handling and error scenarios.
 
 ## Development Notes
 
-- File descriptor limits are automatically raised via utils.go
+- File descriptor limits are automatically raised via printer.go
 - Server gracefully handles signals (SIGINT, SIGTERM) for clean shutdown
 - Error handling includes specific logic for network timeouts and connection resets
 - Build uses Go modules with go 1.24 (toolchain go1.24)

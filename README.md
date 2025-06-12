@@ -2,7 +2,6 @@
 
 [![Test](https://github.com/yuuki/tcpulse/actions/workflows/test.yml/badge.svg)](https://github.com/yuuki/tcpulse/actions/workflows/test.yml)
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/yuuki/tcpulse)
-[![Star History Chart](https://api.star-history.com/svg?repos=yuuki/tcpulse&type=Date)](https://www.star-history.com/#yuuki/tcpulse&Date)
 
 tcpulse is a concurrent TCP/UDP load generator written in Go that provides fine-grained, flow-level control over connection establishment and data transfer.
 

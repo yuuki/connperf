@@ -76,24 +76,7 @@ Creates new connections for each request, immediately closing them afterward. Th
 
 ### Pre-built Binaries
 
-Download the latest pre-built binaries from the [GitHub Releases](https://github.com/yuuki/tcpulse/releases) page:
-
-```bash
-# Linux (x86_64)
-curl -LO https://github.com/yuuki/tcpulse/releases/latest/download/tcpulse_linux_x86_64.tar.gz
-tar -xzf tcpulse_linux_x86_64.tar.gz
-sudo mv tcpulse /usr/local/bin/
-
-# macOS (x86_64)
-curl -LO https://github.com/yuuki/tcpulse/releases/latest/download/tcpulse_darwin_x86_64.tar.gz
-tar -xzf tcpulse_darwin_x86_64.tar.gz
-sudo mv tcpulse /usr/local/bin/
-
-# macOS (Apple Silicon)
-curl -LO https://github.com/yuuki/tcpulse/releases/latest/download/tcpulse_darwin_arm64.tar.gz
-tar -xzf tcpulse_darwin_arm64.tar.gz
-sudo mv tcpulse /usr/local/bin/
-```
+Download the latest pre-built binaries from the [GitHub Releases](https://github.com/yuuki/tcpulse/releases) page.
 
 ### Build from Source
 

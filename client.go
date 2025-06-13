@@ -47,13 +47,13 @@ func waitLim(ctx context.Context, rl ratelimit.Limiter) error {
 		return ctx.Err()
 	default:
 	}
-	
+
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
 		rl.Take()
 	}()
-	
+
 	select {
 	case <-done:
 		return nil
@@ -100,6 +100,10 @@ func (c *Client) ConnectToAddresses(ctx context.Context, addrs []string) error {
 	}
 
 	if err := eg.Wait(); err != nil {
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			slog.Warn("context canceled", "error", err)
+			return nil
+		}
 		return fmt.Errorf("connection error: %w", err)
 	}
 	return nil

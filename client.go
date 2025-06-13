@@ -41,21 +41,24 @@ func NewClient(config ClientConfig) *Client {
 }
 
 func waitLim(ctx context.Context, rl ratelimit.Limiter) error {
+	// Quick context check before any blocking operation
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
 	default:
-		done := make(chan struct{})
-		go func() {
-			rl.Take()
-			close(done)
-		}()
-		select {
-		case <-done:
-			return nil
-		case <-ctx.Done():
-			return ctx.Err()
-		}
+	}
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		rl.Take()
+	}()
+
+	select {
+	case <-done:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
 	}
 }
 
@@ -97,6 +100,10 @@ func (c *Client) ConnectToAddresses(ctx context.Context, addrs []string) error {
 	}
 
 	if err := eg.Wait(); err != nil {
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			slog.Warn("context canceled", "error", err)
+			return nil
+		}
 		return fmt.Errorf("connection error: %w", err)
 	}
 	return nil
@@ -135,11 +142,16 @@ func (c *Client) connectPersistent(ctx context.Context, addrport string) error {
 	eg, ctx := errgroup.WithContext(ctx)
 	for i := 0; i < int(c.config.Connections); i++ {
 		eg.Go(func() error {
-			conn, err := dialer.Dial("tcp", addrport)
+			conn, err := dialer.DialContext(ctx, "tcp", addrport)
 			if err != nil {
 				return fmt.Errorf("dialing %q: %w", addrport, err)
 			}
 			defer conn.Close()
+
+			// Set deadlines based on context to make Read/Write operations interruptible
+			if deadline, ok := ctx.Deadline(); ok {
+				conn.SetDeadline(deadline)
+			}
 
 			msgsTotal := int64(c.config.Rate) * int64(c.config.Duration.Seconds())
 			limiter := ratelimit.New(int(c.config.Rate))
@@ -197,17 +209,25 @@ func (c *Client) connectEphemeral(ctx context.Context, addrport string) error {
 	limiter := ratelimit.New(int(c.config.Rate))
 
 	eg, ctx := errgroup.WithContext(ctx)
+ephemeralLoop:
 	for i := int64(0); i < connTotal; i++ {
+		// Check for context cancellation at the start of each iteration
+		select {
+		case <-ctx.Done():
+			break ephemeralLoop
+		default:
+		}
+
 		if err := waitLim(ctx, limiter); err != nil {
 			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-				break
+				break ephemeralLoop
 			}
 			continue
 		}
 
 		eg.Go(func() error {
 			return measureTime(addrport, c.config.MergeResultsEachHost, func() error {
-				conn, err := dialer.Dial("tcp", addrport)
+				conn, err := dialer.DialContext(ctx, "tcp", addrport)
 				if err != nil {
 					if errors.Is(err, syscall.ETIMEDOUT) {
 						slog.Warn("connection timeout", "addr", addrport)
@@ -216,6 +236,11 @@ func (c *Client) connectEphemeral(ctx context.Context, addrport string) error {
 					return fmt.Errorf("dialing %q: %w", addrport, err)
 				}
 				defer conn.Close()
+
+				// Set deadlines based on context to make Read/Write operations interruptible
+				if deadline, ok := ctx.Deadline(); ok {
+					conn.SetDeadline(deadline)
+				}
 
 				if err := SetQuickAck(conn); err != nil {
 					return fmt.Errorf("setting quick ack: %w", err)
@@ -267,21 +292,35 @@ func (c *Client) connectUDP(ctx context.Context, addrport string) error {
 	}
 
 	eg, ctx := errgroup.WithContext(ctx)
+udpLoop:
 	for i := int64(0); i < connTotal; i++ {
+		// Check for context cancellation at the start of each iteration
+		select {
+		case <-ctx.Done():
+			break udpLoop
+		default:
+		}
+
 		if err := waitLim(ctx, limiter); err != nil {
 			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-				break
+				break udpLoop
 			}
 			continue
 		}
 
 		eg.Go(func() error {
 			return measureTime(addrport, c.config.MergeResultsEachHost, func() error {
-				conn, err := net.Dial("udp4", addrport)
+				var dialer net.Dialer
+				conn, err := dialer.DialContext(ctx, "udp4", addrport)
 				if err != nil {
 					return fmt.Errorf("dialing UDP %q: %w", addrport, err)
 				}
 				defer conn.Close()
+
+				// Set deadlines based on context to make Read/Write operations interruptible
+				if deadline, ok := ctx.Deadline(); ok {
+					conn.SetDeadline(deadline)
+				}
 
 				msgPtr := bufUDPPool.Get().(*[]byte)
 				msg := *msgPtr

@@ -8,7 +8,7 @@ OUT_DOCKER ?= tcpulse
 all: build
 
 build: vet staticcheck
-	$(GO) build -o $(OUT_BIN)
+	CGO_ENABLED=0 $(GO) build -o $(OUT_BIN)
 
 vet:
 	$(GO) vet ./...
